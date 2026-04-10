@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.forgot_title }}</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;
+               background:#fafafa;display:flex;align-items:center;justify-content:center;padding:20px;color:#e2e8f0; }
+        .box { background:#1e293b;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.04);
+               padding:48px 40px;width:100%;max-width:440px;border:1px solid #334155; }
+        h2 { color:#e2e8f0;font-size:24px;font-weight:600;margin-bottom:8px;letter-spacing:-0.5px;text-align:center; }
+        p.lead { color:#94a3b8;font-size:15px;text-align:center;margin-bottom:28px;line-height:1.6; }
+        .form-group { margin-bottom:18px; }
+        .form-input { width:100%;padding:14px 16px;border:1.5px solid #334155;border-radius:8px;font-size:15px;
+                      transition:border-color .2s,box-shadow .2s;background:#0f172a;color:#e2e8f0;font-family:inherit; }
+        .form-input:focus { outline:none;border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.1); }
+        .btn { width:100%;padding:14px 16px;background:#007AFF;color:white;border:none;border-radius:8px;
+               font-size:16px;font-weight:500;cursor:pointer;transition:background .2s;margin-bottom:18px;font-family:inherit; }
+        .btn:hover { background:#0056CC; }
+        .links { text-align:center;display:flex;flex-direction:column;gap:10px; }
+        .links a { color:#007AFF;text-decoration:none;font-size:14px;padding:8px 12px;border-radius:6px; }
+        .links a:hover { background:#f5f5f5; }
+        .messages { margin-top:20px; }
+        .messages ul { list-style:none; }
+        .messages li { background:#D1E7DD;color:#0A3622;padding:12px 16px;border-radius:8px;margin-bottom:8px;font-size:14px;border:1px solid #A3CFBB; }
+        @media(prefers-color-scheme:dark){
+            body{background:#1a1a1a;color:#fff;}
+            .box{background:#2a2a2a;border-color:#3a3a3a;}
+            h2{color:#fff;} p.lead{color:#aaa;}
+            .form-input{background:#333;border-color:#444;color:#fff;}
+            .links a:hover{background:#333;}
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>{{ t.forgot_title }}</h2>
+        <p class="lead">{{ t.forgot_lead }}</p>
+        <form method="POST" action="{{ url_for('forgot') }}">
+            <div class="form-group">
+                <input type="email" name="email" class="form-input" placeholder="{{ t.forgot_email_ph }}" required autocomplete="email"/>
+            </div>
+            <button type="submit" class="btn">{{ t.forgot_btn }}</button>
+        </form>
+        <div class="links">
+            <a href="{{ url_for('login') }}">{{ t.back_to_login }}</a>
+            <a href="{{ url_for('register') }}">{{ t.register_link }}</a>
+        </div>
+        <div class="messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}<ul>{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>{% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
+
+  <!-- Language Switcher (flag-based, mobile-friendly) -->
+  <div id="langSwitcher" style="position:fixed;top:16px;right:16px;z-index:10000;">
+    <button id="langBtn"
+      style="background:rgba(15,18,32,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);
+             border-radius:10px;padding:6px 10px;cursor:pointer;font-size:20px;line-height:1;
+             display:flex;align-items:center;gap:5px;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,0.3);">
+      <span id="activeLangFlag">{% if lang=="tr" %}🇹🇷{% elif lang=="en" %}🇬🇧{% else %}🇩🇪{% endif %}</span>
+      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="opacity:0.6">
+        <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="langMenu"
+      style="display:none;position:absolute;top:calc(100% + 6px);right:0;
+             background:rgba(15,18,32,0.95);backdrop-filter:blur(12px);
+             border:1px solid rgba(255,255,255,0.12);border-radius:10px;
+             overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);min-width:110px;">
+      {% set flag_map = {"tr":"🇹🇷","en":"🇬🇧","de":"🇩🇪"} %}
+      {% for lc in ["tr","en","de"] %}
+      <a href="{{ url_for('set_lang', lang=lc) }}"
+        style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{% if lang==lc %}#60a5fa{% else %}rgba(255,255,255,0.75){% endif %};
+               background:{% if lang==lc %}rgba(26,107,255,0.15){% else %}transparent{% endif %};
+               transition:background .15s;">
+        <span style="font-size:18px">{{ flag_map[lc] }}</span>
+        <span>{{ lang_names[lc] }}</span>
+        {% if lang==lc %}<span style="margin-left:auto;color:#60a5fa;font-size:11px">✓</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  <script>
+    document.addEventListener('click', function(e) {
+      const sw = document.getElementById('langSwitcher');
+      if (sw && !sw.contains(e.target)) {
+        const m = document.getElementById('langMenu');
+        if (m) m.style.display = 'none';
+      }
+    });
+    document.getElementById('langBtn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      const m = document.getElementById('langMenu');
+      m.style.display = m.style.display === 'none' ? 'block' : 'none';
+    });
+  </script>
+  <!-- Language Switcher -->
+  <div id="langSwitcher" style="position:fixed;top:14px;right:14px;z-index:10000;">
+    <button id="langBtn"
+      style="background:rgba(10,15,30,0.88);backdrop-filter:blur(10px);
+             border:1px solid rgba(255,255,255,0.18);border-radius:8px;
+             padding:5px 9px;cursor:pointer;line-height:1;
+             display:flex;align-items:center;gap:5px;box-shadow:0 2px 10px rgba(0,0,0,0.4);">
+      {% if lang=="tr" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRTMwQTE3Ii8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iNSIgZmlsbD0iI2ZmZiIvPgogIDxjaXJjbGUgY3g9IjEzLjUiIGN5PSIxMCIgcj0iNCIgZmlsbD0iI0UzMEExNyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTgsMTAgMTkuNSw3LjIgMjIuNSw4IDIwLjgsMTAgMjIuNSwxMiAxOS41LDExLjgiIGZpbGw9IiNmZmYiLz4KPC9zdmc+" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="TR">{% endif %}{% if lang=="en" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDEyMTY5Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI0M4MTAyRSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE1LDAgVjIwIE0wLDEwIEgzMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYiLz4KICA8cGF0aCBkPSJNMTUsMCBWMjAgTTAsMTAgSDMwIiBzdHJva2U9IiNDODEwMkUiIHN0cm9rZS13aWR0aD0iNCIvPgo8L3N2Zz4=" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="EN">{% endif %}{% if lang=="de" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB5PSI3IiB3aWR0aD0iMzAiIGhlaWdodD0iNiIgZmlsbD0iI0QwMCIvPgogIDxyZWN0IHk9IjEzIiB3aWR0aD0iMzAiIGhlaWdodD0iNyIgZmlsbD0iI0ZGQ0UwMCIvPgo8L3N2Zz4=" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="DE">{% endif %}
+      <svg width="9" height="5" viewBox="0 0 9 5" fill="none" style="opacity:0.55;flex-shrink:0;">
+        <path d="M1 1l3.5 3L8 1" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="langMenu"
+      style="display:none;position:absolute;top:calc(100% + 5px);right:0;
+             background:rgba(10,15,30,0.95);backdrop-filter:blur(14px);
+             border:1px solid rgba(255,255,255,0.13);border-radius:10px;
+             overflow:hidden;box-shadow:0 10px 32px rgba(0,0,0,0.5);min-width:100px;">
+      
+      <a href="{{ url_for('set_lang', lang='tr') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='tr'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='tr'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='tr'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRTMwQTE3Ii8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iNSIgZmlsbD0iI2ZmZiIvPgogIDxjaXJjbGUgY3g9IjEzLjUiIGN5PSIxMCIgcj0iNCIgZmlsbD0iI0UzMEExNyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTgsMTAgMTkuNSw3LjIgMjIuNSw4IDIwLjgsMTAgMjIuNSwxMiAxOS41LDExLjgiIGZpbGw9IiNmZmYiLz4KPC9zdmc+" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="TR">
+        <span style="min-width:28px">TR</span>
+        {%if lang=='tr'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+      <a href="{{ url_for('set_lang', lang='en') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='en'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='en'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='en'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDEyMTY5Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI0M4MTAyRSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE1LDAgVjIwIE0wLDEwIEgzMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYiLz4KICA8cGF0aCBkPSJNMTUsMCBWMjAgTTAsMTAgSDMwIiBzdHJva2U9IiNDODEwMkUiIHN0cm9rZS13aWR0aD0iNCIvPgo8L3N2Zz4=" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="EN">
+        <span style="min-width:28px">EN</span>
+        {%if lang=='en'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+      <a href="{{ url_for('set_lang', lang='de') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='de'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='de'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='de'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB5PSI3IiB3aWR0aD0iMzAiIGhlaWdodD0iNiIgZmlsbD0iI0QwMCIvPgogIDxyZWN0IHk9IjEzIiB3aWR0aD0iMzAiIGhlaWdodD0iNyIgZmlsbD0iI0ZGQ0UwMCIvPgo8L3N2Zz4=" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="DE">
+        <span style="min-width:28px">DE</span>
+        {%if lang=='de'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var btn=document.getElementById('langBtn');
+      var menu=document.getElementById('langMenu');
+      if(!btn||!menu) return;
+      btn.addEventListener('click',function(e){
+        e.stopPropagation();
+        menu.style.display=menu.style.display==='block'?'none':'block';
+      });
+      document.addEventListener('click',function(e){
+        if(!document.getElementById('langSwitcher').contains(e.target))
+          menu.style.display='none';
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.settings_title }}</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;
+               background:#fafafa;display:flex;align-items:center;justify-content:center;padding:20px;color:#e2e8f0; }
+        .container { background:#1e293b;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.04);
+                     padding:48px 40px;width:100%;max-width:500px;border:1px solid #334155;position:relative; }
+        .top-right { position:absolute;top:-50px;right:0;display:flex;gap:8px; }
+        .top-right a { text-decoration:none;background:#f5f5f5;color:#94a3b8;padding:10px 16px;border-radius:8px;
+                       font-size:14px;font-weight:500;transition:all .2s;border:1px solid #e8e8e8; }
+        .top-right a:hover { background:#e8e8e8;color:#e2e8f0; }
+        .top-right a:last-child { background:#FF3B30;color:white;border-color:#FF3B30; }
+        .top-right a:last-child:hover { background:#D70015; }
+        .settings-header { text-align:center;margin-bottom:32px; }
+        .settings-header h2 { color:#e2e8f0;font-size:24px;font-weight:600;margin-bottom:8px;letter-spacing:-0.5px; }
+        .form-group { margin-bottom:24px; }
+        .form-group label { display:block;color:#e2e8f0;font-size:14px;font-weight:500;margin-bottom:8px; }
+        .form-input { width:100%;padding:14px 16px;border:1.5px solid #334155;border-radius:8px;font-size:15px;
+                      transition:border-color .2s,box-shadow .2s;background:#0f172a;color:#e2e8f0;font-family:inherit; }
+        .form-input:focus { outline:none;border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.1); }
+        .form-input:disabled { background:#f8f8f8;color:#999;cursor:not-allowed; }
+        .form-input[type="color"] { height:48px;padding:4px;cursor:pointer; }
+        .form-input[type="color"]::-webkit-color-swatch-wrapper { padding:0; }
+        .form-input[type="color"]::-webkit-color-swatch { border:none;border-radius:4px; }
+        .update-button { width:100%;padding:14px 16px;background:#007AFF;color:white;border:none;border-radius:8px;
+                         font-size:16px;font-weight:500;cursor:pointer;transition:background .2s;
+                         margin-bottom:24px;font-family:inherit; }
+        .update-button:hover { background:#0056CC; }
+        .messages { margin-top:20px; }
+        .messages ul { list-style:none; }
+        .messages li { background:#D1E7DD;color:#0A3622;padding:12px 16px;border-radius:8px;margin-bottom:8px;font-size:14px;border:1px solid #A3CFBB; }
+        .messages li.error { background:#F8D7DA;color:#721C24;border-color:#F1AEB5; }
+        @media(max-width:600px){ .container{padding:32px 24px;} .top-right{position:static;margin-bottom:24px;justify-content:center;} }
+        @media(prefers-color-scheme:dark){
+            body{background:#1a1a1a;color:#fff;}
+            .container{background:#2a2a2a;border-color:#3a3a3a;}
+            .settings-header h2{color:#fff;} .form-group label{color:#fff;}
+            .form-input{background:#333;border-color:#444;color:#fff;}
+            .form-input:disabled{background:#2a2a2a;color:#94a3b8;}
+            .top-right a{background:#333;color:#ccc;border-color:#444;}
+            .top-right a:hover{background:#444;color:#fff;}
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-right">
+            <a href="{{ url_for('calendar_view') }}">{{ t.back_to_calendar }}</a>
+            <a href="{{ url_for('logout') }}">{{ t.logout }}</a>
+        </div>
+        <div class="settings-header">
+            <h2>{{ t.settings_title }}</h2>
+        </div>
+        <form method="POST" action="{{ url_for('settings') }}">
+            <div class="form-group">
+                <label>{{ t.username_lbl }}</label>
+                <input type="text" class="form-input" value="{{ user.username }}" disabled />
+            </div>
+            <div class="form-group">
+                <label for="email">{{ t.email_lbl }}</label>
+                <input type="email" id="email" name="email" class="form-input"
+                       value="{{ user.email or '' }}" placeholder="{{ t.email }}" autocomplete="email"/>
+            </div>
+            <div class="form-group">
+                <label for="color">{{ t.fav_color }}</label>
+                <input type="color" id="color" name="color" class="form-input" value="{{ user.color }}" />
+            </div>
+            <div class="form-group">
+                <label for="password">{{ t.new_password_lbl }}</label>
+                <input type="password" id="password" name="password" class="form-input"
+                       placeholder="{{ t.new_password_opt }}" />
+            </div>
+            <button type="submit" class="update-button">{{ t.settings_btn }}</button>
+        </form>
+        <div class="messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}<ul>
+                {% for cat, msg in messages %}<li class="{{ cat }}">{{ msg }}</li>{% endfor %}
+                </ul>{% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
+
+  <!-- Language Switcher (flag-based, mobile-friendly) -->
+  <div id="langSwitcher" style="position:fixed;top:16px;right:16px;z-index:10000;">
+    <button id="langBtn"
+      style="background:rgba(15,18,32,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);
+             border-radius:10px;padding:6px 10px;cursor:pointer;font-size:20px;line-height:1;
+             display:flex;align-items:center;gap:5px;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,0.3);">
+      <span id="activeLangFlag">{% if lang=="tr" %}🇹🇷{% elif lang=="en" %}🇬🇧{% else %}🇩🇪{% endif %}</span>
+      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="opacity:0.6">
+        <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="langMenu"
+      style="display:none;position:absolute;top:calc(100% + 6px);right:0;
+             background:rgba(15,18,32,0.95);backdrop-filter:blur(12px);
+             border:1px solid rgba(255,255,255,0.12);border-radius:10px;
+             overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);min-width:110px;">
+      {% set flag_map = {"tr":"🇹🇷","en":"🇬🇧","de":"🇩🇪"} %}
+      {% for lc in ["tr","en","de"] %}
+      <a href="{{ url_for('set_lang', lang=lc) }}"
+        style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{% if lang==lc %}#60a5fa{% else %}rgba(255,255,255,0.75){% endif %};
+               background:{% if lang==lc %}rgba(26,107,255,0.15){% else %}transparent{% endif %};
+               transition:background .15s;">
+        <span style="font-size:18px">{{ flag_map[lc] }}</span>
+        <span>{{ lang_names[lc] }}</span>
+        {% if lang==lc %}<span style="margin-left:auto;color:#60a5fa;font-size:11px">✓</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  <script>
+    document.addEventListener('click', function(e) {
+      const sw = document.getElementById('langSwitcher');
+      if (sw && !sw.contains(e.target)) {
+        const m = document.getElementById('langMenu');
+        if (m) m.style.display = 'none';
+      }
+    });
+    document.getElementById('langBtn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      const m = document.getElementById('langMenu');
+      m.style.display = m.style.display === 'none' ? 'block' : 'none';
+    });
+  </script>
+  <!-- Language Switcher -->
+  <div id="langSwitcher" style="position:fixed;top:14px;right:14px;z-index:10000;">
+    <button id="langBtn"
+      style="background:rgba(10,15,30,0.88);backdrop-filter:blur(10px);
+             border:1px solid rgba(255,255,255,0.18);border-radius:8px;
+             padding:5px 9px;cursor:pointer;line-height:1;
+             display:flex;align-items:center;gap:5px;box-shadow:0 2px 10px rgba(0,0,0,0.4);">
+      {% if lang=="tr" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRTMwQTE3Ii8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iNSIgZmlsbD0iI2ZmZiIvPgogIDxjaXJjbGUgY3g9IjEzLjUiIGN5PSIxMCIgcj0iNCIgZmlsbD0iI0UzMEExNyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTgsMTAgMTkuNSw3LjIgMjIuNSw4IDIwLjgsMTAgMjIuNSwxMiAxOS41LDExLjgiIGZpbGw9IiNmZmYiLz4KPC9zdmc+" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="TR">{% endif %}{% if lang=="en" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDEyMTY5Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI0M4MTAyRSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE1LDAgVjIwIE0wLDEwIEgzMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYiLz4KICA8cGF0aCBkPSJNMTUsMCBWMjAgTTAsMTAgSDMwIiBzdHJva2U9IiNDODEwMkUiIHN0cm9rZS13aWR0aD0iNCIvPgo8L3N2Zz4=" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="EN">{% endif %}{% if lang=="de" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB5PSI3IiB3aWR0aD0iMzAiIGhlaWdodD0iNiIgZmlsbD0iI0QwMCIvPgogIDxyZWN0IHk9IjEzIiB3aWR0aD0iMzAiIGhlaWdodD0iNyIgZmlsbD0iI0ZGQ0UwMCIvPgo8L3N2Zz4=" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="DE">{% endif %}
+      <svg width="9" height="5" viewBox="0 0 9 5" fill="none" style="opacity:0.55;flex-shrink:0;">
+        <path d="M1 1l3.5 3L8 1" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="langMenu"
+      style="display:none;position:absolute;top:calc(100% + 5px);right:0;
+             background:rgba(10,15,30,0.95);backdrop-filter:blur(14px);
+             border:1px solid rgba(255,255,255,0.13);border-radius:10px;
+             overflow:hidden;box-shadow:0 10px 32px rgba(0,0,0,0.5);min-width:100px;">
+      
+      <a href="{{ url_for('set_lang', lang='tr') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='tr'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='tr'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='tr'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRTMwQTE3Ii8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iNSIgZmlsbD0iI2ZmZiIvPgogIDxjaXJjbGUgY3g9IjEzLjUiIGN5PSIxMCIgcj0iNCIgZmlsbD0iI0UzMEExNyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTgsMTAgMTkuNSw3LjIgMjIuNSw4IDIwLjgsMTAgMjIuNSwxMiAxOS41LDExLjgiIGZpbGw9IiNmZmYiLz4KPC9zdmc+" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="TR">
+        <span style="min-width:28px">TR</span>
+        {%if lang=='tr'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+      <a href="{{ url_for('set_lang', lang='en') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='en'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='en'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='en'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDEyMTY5Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI0M4MTAyRSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE1LDAgVjIwIE0wLDEwIEgzMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYiLz4KICA8cGF0aCBkPSJNMTUsMCBWMjAgTTAsMTAgSDMwIiBzdHJva2U9IiNDODEwMkUiIHN0cm9rZS13aWR0aD0iNCIvPgo8L3N2Zz4=" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="EN">
+        <span style="min-width:28px">EN</span>
+        {%if lang=='en'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+      <a href="{{ url_for('set_lang', lang='de') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='de'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='de'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='de'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB5PSI3IiB3aWR0aD0iMzAiIGhlaWdodD0iNiIgZmlsbD0iI0QwMCIvPgogIDxyZWN0IHk9IjEzIiB3aWR0aD0iMzAiIGhlaWdodD0iNyIgZmlsbD0iI0ZGQ0UwMCIvPgo8L3N2Zz4=" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="DE">
+        <span style="min-width:28px">DE</span>
+        {%if lang=='de'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var btn=document.getElementById('langBtn');
+      var menu=document.getElementById('langMenu');
+      if(!btn||!menu) return;
+      btn.addEventListener('click',function(e){
+        e.stopPropagation();
+        menu.style.display=menu.style.display==='block'?'none':'block';
+      });
+      document.addEventListener('click',function(e){
+        if(!document.getElementById('langSwitcher').contains(e.target))
+          menu.style.display='none';
+      });
+    })();
+  </script>
+</body>
+</html>
