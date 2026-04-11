@@ -16,6 +16,9 @@
       document.documentElement.setAttribute('data-theme',t);
     })();
   </script>
+  <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16.png">
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#0F2235">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
@@ -59,6 +62,18 @@
       </div>
     </div>
     <div class="lrn-actions">
+      <button class="btn" onclick="openMetarModal()" title="METAR / TAF"
+        style="background:rgba(44,110,138,0.18);border-color:rgba(44,110,138,0.4);font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+        🌤 METAR
+      </button>
+      <button class="btn" onclick="openMapModal()" title="Karte METAR"
+        style="background:rgba(44,110,138,0.18);border-color:rgba(44,110,138,0.4);font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+        🗺 Karte
+      </button>
+      <button class="btn" onclick="openLogbookModal()" title="Flugbuch"
+        style="background:rgba(44,110,138,0.18);border-color:rgba(44,110,138,0.4);font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+        📋 Logbuch
+      </button>
       <button class="btn btn-sim" onclick="openSimModal()" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">🎯 Prüfungs-Simulation</button>
       <button class="btn btn-wrong" id="btnWrong" style="display:none" onclick="openWrongModal()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -296,9 +311,410 @@
 
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/static/sw.js');
+      navigator.serviceWorker.register('/sw.js');
     }
   </script>
+
+<!-- ══ METAR Modal ══════════════════════════════════════════════════════════ -->
+<div class="modal-ov" id="metarModal" style="z-index:9995">
+  <div class="modal-box" style="max-width:700px">
+    <div class="modal-hdr">
+      <div>
+        <h2 class="modal-title">🌤 METAR / TAF</h2>
+        <p class="modal-sub">EDDV (Hannover) · EDVK (Kassel-Calden) — Live</p>
+      </div>
+      <button class="modal-close" onclick="closeMetarModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn" onclick="fetchMetar()" style="background:rgba(44,110,138,0.18);border-color:rgba(44,110,138,0.4)">↻ Aktualisieren</button>
+        <span id="metarTimestamp" style="font-size:11px;color:var(--muted);align-self:center"></span>
+      </div>
+      <div id="metarContent" style="font-family:monospace;font-size:13px;line-height:1.8;color:var(--text)">
+        <div style="color:var(--muted);padding:20px 0;text-align:center">Laden…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Map Modal ════════════════════════════════════════════════════════════ -->
+<div class="modal-ov" id="mapModal" style="z-index:9995">
+  <div class="modal-box" style="max-width:900px;height:90vh;display:flex;flex-direction:column">
+    <div class="modal-hdr" style="flex-shrink:0">
+      <div>
+        <h2 class="modal-title">🗺 METAR Karte</h2>
+        <p class="modal-sub">Auf die Karte klicken → nächste Station</p>
+      </div>
+      <button class="modal-close" onclick="closeMapModal()">✕</button>
+    </div>
+    <div style="flex:1;position:relative;min-height:0">
+      <div id="metarMap" style="width:100%;height:100%;border-radius:0 0 12px 12px"></div>
+      <div id="mapMetarPopup" style="display:none;position:absolute;bottom:16px;left:16px;right:16px;
+           background:var(--surface);border:1px solid var(--border);border-radius:10px;
+           padding:14px 16px;font-family:monospace;font-size:12px;line-height:1.7;
+           z-index:1000;max-height:160px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.3)">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Logbook Modal ═════════════════════════════════════════════════════════ -->
+<div class="modal-ov" id="logbookModal" style="z-index:9995">
+  <div class="modal-box" style="max-width:900px;height:90vh;display:flex;flex-direction:column">
+    <div class="modal-hdr" style="flex-shrink:0">
+      <div>
+        <h2 class="modal-title">📋 Flugbuch</h2>
+        <p class="modal-sub" id="logbookStats">Einträge werden geladen…</p>
+      </div>
+      <button class="modal-close" onclick="closeLogbookModal()">✕</button>
+    </div>
+    <div style="flex-shrink:0;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <!-- Formular -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px" id="logForm">
+        <input class="lb-inp" id="lb_date"   type="date"   placeholder="Datum" title="Datum">
+        <input class="lb-inp" id="lb_type"   type="text"   placeholder="Muster (z.B. C172)" title="Luftfahrzeugmuster">
+        <input class="lb-inp" id="lb_reg"    type="text"   placeholder="Kennzeichen" title="Kennzeichen">
+        <input class="lb-inp" id="lb_dep"    type="text"   placeholder="Von (ICAO)" title="Abflugort">
+        <input class="lb-inp" id="lb_dest"   type="text"   placeholder="Nach (ICAO)" title="Zielort">
+        <input class="lb-inp" id="lb_off"    type="time"   placeholder="Block-Off" title="Block-Off">
+        <input class="lb-inp" id="lb_on"     type="time"   placeholder="Block-On" title="Block-On">
+        <input class="lb-inp" id="lb_ft"     type="text"   placeholder="Flugzeit (h:mm)" title="Flugzeit">
+        <input class="lb-inp" id="lb_land"   type="number" placeholder="Ldg" min="0" value="1" title="Landungen">
+        <input class="lb-inp" id="lb_pic"    type="text"   placeholder="PIC" title="Verantwortlicher Pilot">
+        <input class="lb-inp" id="lb_rem"    type="text"   placeholder="Bemerkungen" title="Bemerkungen" style="grid-column:span 2">
+        <button onclick="logbookAdd()" style="background:rgba(44,110,138,0.85);color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;grid-column:span 1">＋ Eintrag</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;min-height:0">
+      <table style="width:100%;border-collapse:collapse;font-size:12px" id="logTable">
+        <thead>
+          <tr style="position:sticky;top:0;background:var(--surface2);z-index:2">
+            <th class="lb-th">Datum</th>
+            <th class="lb-th">Muster</th>
+            <th class="lb-th">Kz.</th>
+            <th class="lb-th">Von</th>
+            <th class="lb-th">Nach</th>
+            <th class="lb-th">Block-Off</th>
+            <th class="lb-th">Block-On</th>
+            <th class="lb-th">FZ</th>
+            <th class="lb-th">Ldg</th>
+            <th class="lb-th">PIC</th>
+            <th class="lb-th">Bem.</th>
+            <th class="lb-th"></th>
+          </tr>
+        </thead>
+        <tbody id="logBody">
+          <tr><td colspan="12" style="text-align:center;padding:24px;color:var(--muted)">Laden…</td></tr>
+        </tbody>
+        <tfoot>
+          <tr style="position:sticky;bottom:0;background:var(--surface2);font-weight:700;font-size:12px">
+            <td colspan="7" class="lb-td" style="text-align:right;color:var(--muted)">Gesamt:</td>
+            <td class="lb-td" id="totalFt" style="color:var(--brand)" title="Gesamte Flugzeit">—</td>
+            <td class="lb-td" id="totalLdg" style="color:var(--brand)" title="Gesamtlandungen">—</td>
+            <td colspan="3" class="lb-td" style="font-size:11px;color:var(--muted)" id="groundCell"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.lb-inp{background:var(--surface2);border:1px solid var(--border);border-radius:7px;
+        padding:7px 10px;font-size:12px;color:var(--text);width:100%;box-sizing:border-box;}
+.lb-inp:focus{outline:none;border-color:var(--brand);}
+.lb-th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600;
+       color:var(--muted);white-space:nowrap;border-bottom:1px solid var(--border);}
+.lb-td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);
+       font-size:12px;white-space:nowrap;}
+.lb-del{background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px 6px;border-radius:4px;}
+.lb-del:hover{background:rgba(239,68,68,.12);color:#ef4444;}
+</style>
+
+<script>
+/* ── Leaflet lazy load ─────────────────────────────────────────────────── */
+let leafletLoaded = false;
+function ensureLeaflet(cb) {
+  if (leafletLoaded) { cb(); return; }
+  const lcs = document.createElement('link');
+  lcs.rel = 'stylesheet';
+  lcs.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+  document.head.appendChild(lcs);
+  const ls = document.createElement('script');
+  ls.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  ls.onload = () => { leafletLoaded = true; cb(); };
+  document.head.appendChild(ls);
+}
+
+/* ── METAR Modal ───────────────────────────────────────────────────────── */
+function openMetarModal() {
+  document.getElementById('metarModal').classList.add('open');
+  fetchMetar();
+}
+function closeMetarModal() {
+  document.getElementById('metarModal').classList.remove('open');
+}
+async function fetchMetar() {
+  const el = document.getElementById('metarContent');
+  el.innerHTML = '<div style="color:var(--muted);padding:20px 0;text-align:center">Laden…</div>';
+  try {
+    const stations = 'EDDV,EDVK';
+    const [mRes, tRes] = await Promise.all([
+      fetch(`/api/metar?ids=${stations}&type=metar`),
+      fetch(`/api/metar?ids=${stations}&type=taf`)
+    ]);
+    const mText = await mRes.text();
+    const tText = await tRes.text();
+    const now = new Date().toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+    document.getElementById('metarTimestamp').textContent = `Stand: ${now} UTC`;
+    const fmt = raw => raw.trim().split('\n').filter(Boolean).map(l =>
+      `<div style="padding:6px 10px;margin-bottom:4px;background:var(--surface2);border-radius:6px;border-left:3px solid var(--brand);word-break:break-all">${l.trim()}</div>`
+    ).join('') || '<div style="color:var(--muted)">Keine Daten</div>';
+    el.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">METAR</div>
+      ${fmt(mText)}
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">TAF</div>
+      ${fmt(tText)}`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:#ef4444;padding:12px">Fehler beim Laden: ${e.message}</div>`;
+  }
+}
+
+/* ── Map Modal ─────────────────────────────────────────────────────────── */
+let leafletMap = null;
+let airportMarkers = [];
+
+function openMapModal() {
+  document.getElementById('mapModal').classList.add('open');
+  ensureLeaflet(() => {
+    setTimeout(() => initMap(), 100);
+  });
+}
+function closeMapModal() {
+  document.getElementById('mapModal').classList.remove('open');
+}
+
+async function initMap() {
+  if (!leafletMap) {
+    leafletMap = L.map('metarMap').setView([51.5, 10.0], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 13
+    }).addTo(leafletMap);
+    leafletMap.on('moveend zoomend', loadAirportMarkers);
+    await loadAirportMarkers();
+  } else {
+    leafletMap.invalidateSize();
+  }
+}
+
+async function loadAirportMarkers() {
+  const bounds = leafletMap.getBounds();
+  const bbox = `${bounds.getSouth().toFixed(2)},${bounds.getWest().toFixed(2)},${bounds.getNorth().toFixed(2)},${bounds.getEast().toFixed(2)}`;
+  try {
+    const res  = await fetch(`/api/metar?bbox=${bbox}&type=stations`);
+    const text = await res.text();
+    // Her eski marker'ı temizle
+    airportMarkers.forEach(m => m.remove());
+    airportMarkers = [];
+    const lines = text.trim().split('\n').filter(Boolean);
+    lines.forEach(line => {
+      const parts = line.trim().split(/\s+/);
+      const icao = parts[0];
+      if (!icao || icao.length < 3) return;
+      // METAR satırından koordinat almak için station_id match
+      // Koordinatları ayrı sorgulayamayız — marker'ları tıklama üzerinden yönetelim
+      // Bu nedenle görünür alanda station list çekeceğiz
+    });
+    // Alternatif: bbox METAR çek, her satırdan ICAO al ve marker ekle
+    await loadVisibleMetars(bbox);
+  } catch(e) { console.error(e); }
+}
+
+async function loadVisibleMetars(bbox) {
+  try {
+    const res  = await fetch(`/api/metar?bbox=${bbox}`);
+    const text = await res.text();
+    airportMarkers.forEach(m => m.remove());
+    airportMarkers = [];
+    const lines = text.trim().split('\n').filter(Boolean);
+    // Her METAR satırını parse et — koordinatlar için station info endpoint'i kullan
+    // Leaflet marker'larını JSON endpoint ile kur
+    const stRes  = await fetch(`/api/metar/stations?bbox=${bbox}`);
+    const stData = await stRes.json();
+    if (stData.stations) {
+      stData.stations.forEach(st => {
+        // Bu istasyonun METAR'ını bul
+        const metar = lines.find(l => l.startsWith(st.icao)) || '';
+        const icon = L.divIcon({
+          html: `<div style="background:rgba(44,110,138,0.9);color:#fff;
+                             padding:2px 5px;border-radius:4px;font-size:10px;font-weight:700;
+                             white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.4)">${st.icao}</div>`,
+          className: '', iconAnchor: [0, 0]
+        });
+        const marker = L.marker([st.lat, st.lon], { icon })
+          .addTo(leafletMap);
+        marker.on('click', () => {
+          // Popup'ı tıklama anında yükle
+          if (!marker._metarLoaded) {
+            marker.bindPopup('<b>' + st.icao + '</b> — yükleniyor…', { maxWidth: 380 }).openPopup();
+            fetch('/api/metar?ids=' + st.icao + '&type=metar')
+              .then(r => r.text()).then(metar => {
+                return fetch('/api/metar?ids=' + st.icao + '&type=taf')
+                  .then(r => r.text()).then(taf => {
+                    const content = '<b style="color:var(--brand)">' + st.icao +
+                      (st.name ? ' — ' + st.name : '') + '</b>' +
+                      '<div style="font-size:10px;color:#888;margin:4px 0 2px">METAR</div>' +
+                      '<code style="font-size:11px;white-space:pre-wrap;word-break:break-all;display:block;max-width:360px">' +
+                      (metar.trim() || 'Veri yok') + '</code>' +
+                      (taf.trim() ? '<div style="font-size:10px;color:#888;margin:6px 0 2px">TAF</div>' +
+                        '<code style="font-size:11px;white-space:pre-wrap;word-break:break-all;display:block;max-width:360px">' + taf.trim() + '</code>' : '');
+                    marker.setPopupContent(content);
+                    marker._metarLoaded = true;
+                    // Alt panel güncelle
+                    fetchStationMetar(st.icao, st.lat, st.lon, st.name);
+                  });
+              }).catch(e => {
+                marker.setPopupContent('<b>' + st.icao + '</b><br><span style="color:#ef4444">Hata: ' + e.message + '</span>');
+              });
+          } else {
+            marker.openPopup();
+            fetchStationMetar(st.icao, st.lat, st.lon, st.name);
+          }
+        });
+        airportMarkers.push(marker);
+      });
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function fetchStationMetar(icao, lat, lon, name) {
+  const popup = document.getElementById('mapMetarPopup');
+  popup.style.display = 'block';
+  popup.innerHTML = `<span style="color:var(--muted)">🔄 ${icao} sorgulanıyor…</span>`;
+  try {
+    const res  = await fetch(`/api/metar?ids=${icao}&type=metar`);
+    const metar = (await res.text()).trim();
+    const tRes  = await fetch(`/api/metar?ids=${icao}&type=taf`);
+    const taf   = (await tRes.text()).trim();
+    popup.innerHTML = `
+      <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--brand)">${icao}${name ? ' — ' + name : ''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px">METAR</div>
+      <div style="margin-bottom:8px;word-break:break-all">${metar || 'Veri yok'}</div>
+      ${taf ? `<div style="font-size:11px;color:var(--muted);margin-bottom:3px">TAF</div><div style="word-break:break-all">${taf}</div>` : ''}`;
+  } catch(e) {
+    popup.innerHTML = `<span style="color:#ef4444">Fehler: ${e.message}</span>`;
+  }
+}
+
+/* ── Logbook Modal ─────────────────────────────────────────────────────── */
+let logEntries = [];
+function openLogbookModal() {
+  document.getElementById('logbookModal').classList.add('open');
+  // Bugünü default olarak set et
+  if (!document.getElementById('lb_date').value) {
+    document.getElementById('lb_date').value = new Date().toISOString().slice(0,10);
+  }
+  fetchLogbook();
+}
+function closeLogbookModal() {
+  document.getElementById('logbookModal').classList.remove('open');
+}
+async function fetchLogbook() {
+  try {
+    const res = await fetch('/api/logbook');
+    const data = await res.json();
+    logEntries = data.entries || [];
+    renderLogbook();
+  } catch(e) { console.error(e); }
+}
+function renderLogbook() {
+  const tbody = document.getElementById('logBody');
+  if (!logEntries.length) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--muted)">Noch keine Einträge</td></tr>';
+    document.getElementById('totalFt').textContent = '0:00';
+    document.getElementById('totalLdg').textContent = '0';
+    document.getElementById('logbookStats').textContent = '0 Einträge · 0:00 Std.';
+    return;
+  }
+  tbody.innerHTML = logEntries.map(e => `
+    <tr>
+      <td class="lb-td">${e.log_date}</td>
+      <td class="lb-td">${e.aircraft_type}</td>
+      <td class="lb-td">${e.registration}</td>
+      <td class="lb-td">${e.departure}</td>
+      <td class="lb-td">${e.destination}</td>
+      <td class="lb-td">${e.block_off}</td>
+      <td class="lb-td">${e.block_on}</td>
+      <td class="lb-td" style="color:var(--brand);font-weight:600">${e.flight_time}</td>
+      <td class="lb-td">${e.landings}</td>
+      <td class="lb-td">${e.pic_name}</td>
+      <td class="lb-td" style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${e.remarks}">${e.remarks}</td>
+      <td class="lb-td"><button class="lb-del" onclick="logbookDelete(${e.id})" title="Löschen">✕</button></td>
+    </tr>`).join('');
+  // Totals
+  let totalFtMin = 0, totalBlkMin = 0, totalLdg = 0;
+  logEntries.forEach(e => {
+    totalLdg += (e.landings || 0);
+    // Uçuş süresi
+    const mft = e.flight_time.match(/(\d+):?(\d{2})?/);
+    if (mft) totalFtMin += parseInt(mft[1]||0)*60 + parseInt(mft[2]||0);
+    // Block süresi (block_off → block_on)
+    if (e.block_off && e.block_on) {
+      const [oh, om] = e.block_off.split(':').map(Number);
+      const [nh, nm] = e.block_on.split(':').map(Number);
+      let blk = (nh*60+nm) - (oh*60+om);
+      if (blk < 0) blk += 1440; // gece yarısı geçişi
+      totalBlkMin += blk;
+    }
+  });
+  const fmt = min => `${Math.floor(min/60)}:${String(min%60).padStart(2,'0')}`;
+  const groundMin = Math.max(0, totalBlkMin - totalFtMin);
+  document.getElementById('totalFt').textContent = fmt(totalFtMin);
+  document.getElementById('totalLdg').textContent = totalLdg;
+  document.getElementById('logbookStats').textContent =
+    `${logEntries.length} Einträge · ✈ ${fmt(totalFtMin)} Flugzeit · ⏱ ${fmt(groundMin)} Bodenzeit · ${totalLdg} Ldg`;
+  const gc = document.getElementById('groundCell');
+  if (gc) gc.textContent = totalBlkMin > 0 ? `⏱ Boden: ${fmt(groundMin)}` : '';
+}
+async function logbookAdd() {
+  const d = {
+    log_date:      document.getElementById('lb_date').value,
+    aircraft_type: document.getElementById('lb_type').value.trim().toUpperCase(),
+    registration:  document.getElementById('lb_reg').value.trim().toUpperCase(),
+    departure:     document.getElementById('lb_dep').value.trim().toUpperCase(),
+    destination:   document.getElementById('lb_dest').value.trim().toUpperCase(),
+    block_off:     document.getElementById('lb_off').value,
+    block_on:      document.getElementById('lb_on').value,
+    flight_time:   document.getElementById('lb_ft').value.trim(),
+    landings:      parseInt(document.getElementById('lb_land').value)||1,
+    pic_name:      document.getElementById('lb_pic').value.trim(),
+    remarks:       document.getElementById('lb_rem').value.trim(),
+  };
+  if (!d.log_date) { alert('Datum eingeben'); return; }
+  try {
+    const res = await fetch('/api/logbook', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)
+    });
+    const data = await res.json();
+    if (data.success) {
+      // Formu temizle (tarih hariç)
+      ['lb_type','lb_reg','lb_dep','lb_dest','lb_off','lb_on','lb_ft','lb_pic','lb_rem'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('lb_land').value = '1';
+      fetchLogbook();
+    }
+  } catch(e) { console.error(e); }
+}
+async function logbookDelete(id) {
+  if (!confirm('Eintrag löschen?')) return;
+  try {
+    await fetch(`/api/logbook/${id}`, {method:'DELETE'});
+    fetchLogbook();
+  } catch(e) { console.error(e); }
+}
+</script>
+
 </body>
 </html>
 <!-- ══ Test Simulation Modal ════════════════════════════════════════════════ -->
