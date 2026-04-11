@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ t.cal_title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+
+  <script>
+    const INITIAL_YEAR = {{ year | tojson }};
+    const INITIAL_MONTH = {{ month | tojson }};
+    const RESERVATIONS = {{ reservation_data | tojson | safe }};
+    const USERS = {{ users | tojson | safe }};
+    const COMMENTS = {{ comments | tojson | safe }};
+    const CURRENT_USER = {{ current_user | tojson | safe }};
+  </script>
+
+  <style>
+    .page-tabs{display:flex;gap:4px;margin-bottom:18px;border-bottom:2px solid var(--border);padding-bottom:0;flex-wrap:wrap;}
+    .page-tab{padding:9px 18px;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;cursor:pointer;
+              color:var(--muted);background:transparent;border:none;border-bottom:3px solid transparent;
+              margin-bottom:-2px;transition:color .15s,border-color .15s;display:flex;align-items:center;gap:6px;}
+    .page-tab:hover{color:var(--text);}
+    .page-tab.active{color:var(--brand);border-bottom-color:var(--brand);background:rgba(26,107,255,.06);}
+    .page-tab-panel{display:none;}.page-tab-panel.active{display:block;}
+    .notif-btn{position:relative;background:none;border:1px solid var(--border);border-radius:8px;
+               padding:7px 10px;cursor:pointer;color:var(--text);display:inline-flex;align-items:center;justify-content:center;}
+    .notif-btn:hover{background:var(--surface2);}
+    .notif-btn svg{width:20px;height:20px;display:block;transition:transform .15s;}
+    .notif-btn:hover svg{transform:rotate(-10deg) scale(1.08);}
+    .notif-btn.has-notif svg{color:#f59e0b;}
+    .notif-badge{position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border-radius:50%;
+                 font-size:10px;font-weight:700;min-width:17px;height:17px;display:flex;
+                 align-items:center;justify-content:center;padding:0 3px;}
+    /* Notification modal overlay */
+    .notif-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(3px);
+                   z-index:9998;display:none;align-items:center;justify-content:center;padding:16px;}
+    .notif-overlay.open{display:flex;}
+    .notif-modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+                 width:100%;max-width:380px;overflow:hidden;
+                 box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:notifIn .18s ease;}
+    @keyframes notifIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+    .notif-modal-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);
+                        display:flex;align-items:center;justify-content:space-between;}
+    .notif-modal-title{font-size:14px;font-weight:700;color:var(--text);}
+    .notif-modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;
+                       padding:0 4px;line-height:1;}
+    .notif-modal-close:hover{color:var(--text);}
+    .notif-item{padding:16px 18px;border-bottom:1px solid var(--border);}
+    .notif-item:last-child{border-bottom:none;}
+    .notif-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+    .notif-sub{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;}
+    .notif-actions{display:flex;gap:10px;}
+    .notif-accept{flex:1;padding:10px 16px;background:var(--brand);color:#fff;border:none;border-radius:8px;
+                  font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+    .notif-accept:hover{opacity:.85;}
+    .notif-dismiss{flex:1;padding:10px 16px;background:var(--surface2);color:var(--muted);border:none;
+                   border-radius:8px;font-size:13px;cursor:pointer;transition:color .15s;}
+    .notif-dismiss:hover{color:var(--text);}
+    .notif-empty{padding:24px;text-align:center;color:var(--muted);font-size:13px;}
+    .priv-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+    .priv-subtabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;align-items:center;}
+    .priv-subtab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;
+                 border:1px solid var(--border);color:var(--muted);background:var(--surface2);transition:all .15s;}
+    .priv-subtab:hover{color:var(--text);}
+    .priv-subtab.active{background:var(--brand);color:#fff;border-color:var(--brand);}
+    .priv-subtab-panel{display:none;}.priv-subtab-panel.active{display:block;}
+    .priv-cal-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+    .priv-cal-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+    .priv-cal-name{font-size:16px;font-weight:700;}
+    .priv-cal-owner{font-size:11px;color:var(--muted);background:var(--surface2);padding:3px 8px;border-radius:10px;}
+    .priv-empty{padding:40px;text-align:center;color:var(--muted);}
+    .priv-new-form{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+    .priv-new-input{flex:1;min-width:180px;padding:8px 12px;background:var(--surface2);
+                    border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;}
+    .priv-new-input:focus{outline:none;border-color:var(--brand);}
+    .invite-section{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+    .invite-section h4{font-size:13px;font-weight:600;margin-bottom:10px;color:var(--muted);}
+    .invite-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+    .invite-select{flex:1;min-width:160px;padding:7px 10px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;
+                   appearance:none;-webkit-appearance:none;
+                   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+                   background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;cursor:pointer;}
+    .invite-select:focus{outline:none;border-color:var(--brand);}
+    .invite-select option{background:#1e293b;color:#e2e8f0;font-size:12px;padding:6px;}
+    .member-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+    .member-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:20px;font-size:11px;}
+    .member-chip .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .member-remove{margin-left:2px;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;}
+    .member-remove:hover{color:#ef4444;}
+    .rename-form{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+    .rename-input{padding:5px 10px;background:var(--surface2);border:1px solid var(--border);
+                  border-radius:6px;color:var(--text);font-size:12px;width:160px;}
+
+    /* ── Year overview ────────────────────────────────────────────────── */
+    .year-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.82);backdrop-filter:blur(5px);
+                  z-index:9990;display:none;align-items:center;justify-content:center;
+                  padding:12px 8px;}
+    .year-overlay.open{display:flex;}
+    .year-modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+                width:100%;max-width:1080px;
+                height:calc(100vh - 24px);max-height:calc(100vh - 24px);
+                overflow-y:auto;-webkit-overflow-scrolling:touch;
+                box-shadow:0 24px 64px rgba(0,0,0,.65);animation:yearIn .2s ease;
+                display:flex;flex-direction:column;}
+    @keyframes yearIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+    .year-modal-header{padding:12px 16px;border-bottom:1px solid var(--border);
+                       display:flex;align-items:center;justify-content:space-between;
+                       gap:8px;flex-wrap:wrap;flex-shrink:0;position:sticky;top:0;
+                       background:var(--surface);z-index:10002;}
+    .year-modal-title{font-size:15px;font-weight:700;color:var(--text);}
+    .year-nav{display:flex;align-items:center;gap:6px;}
+    .year-nav-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text);
+                  padding:5px 11px;cursor:pointer;font-size:13px;touch-action:manipulation;}
+    .year-nav-btn:hover{background:var(--surface2);}
+    .year-nav-label{font-weight:700;font-size:15px;color:var(--text);min-width:44px;text-align:center;}
+    .year-modal-close{background:var(--surface2);border:1px solid var(--border);
+                      border-radius:8px;color:var(--text);font-size:18px;
+                      cursor:pointer;line-height:1;padding:4px 10px;touch-action:manipulation;}
+    .year-modal-close:hover{background:rgba(239,68,68,.15);color:#ef4444;border-color:#ef4444;}
+    .year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px;flex:1;}
+    @media(max-width:860px){.year-grid{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:580px){.year-grid{grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;}}
+    .mini-month{border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+    .mini-month-name{padding:7px 10px;font-size:12px;font-weight:700;color:var(--text);
+                     background:var(--surface2);border-bottom:1px solid var(--border);
+                     cursor:pointer;transition:background .15s;}
+    .mini-month-name:hover{background:rgba(26,107,255,.15);color:var(--brand);}
+    .mini-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:6px;}
+    .mini-wd{font-size:8px;font-weight:600;color:var(--muted);text-align:center;padding:2px 0;}
+    .mini-cell{width:100%;aspect-ratio:1;border-radius:3px;font-size:9px;display:flex;
+               align-items:center;justify-content:center;color:var(--text);cursor:default;
+               transition:opacity .1s;-webkit-tap-highlight-color:transparent;}
+    @media(max-width:580px){.mini-cell{font-size:8px;border-radius:2px;}
+      .mini-wd{font-size:7px;} .mini-month-name{font-size:11px;padding:5px 8px;}}
+    .mini-cell.blank{background:transparent;}
+    .mini-cell.free{background:rgba(255,255,255,0.04);}
+    .mini-cell.free:hover{background:rgba(255,255,255,0.09);}
+    .mini-cell.reserved{font-weight:700;color:#fff;}
+    .mini-cell.today-cell{box-shadow:inset 0 0 0 1.5px var(--brand);}
+    .year-legend{display:flex;flex-wrap:wrap;gap:10px;padding:0 20px 16px;align-items:center;}
+    .year-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+    .year-legend-dot{width:10px;height:10px;border-radius:50%;}
+
+    /* ── Services popup ──────────────────────────────────────────────────── */
+    .svc-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(5px);
+                 z-index:9980;display:none;align-items:center;justify-content:center;padding:16px;}
+    .svc-overlay.open{display:flex;}
+    .svc-modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+               width:100%;max-width:560px;box-shadow:0 24px 64px rgba(0,0,0,.6);
+               animation:svcIn .18s ease;overflow:hidden;}
+    @keyframes svcIn{from{transform:scale(.93);opacity:0}to{transform:scale(1);opacity:1}}
+    .svc-modal-header{padding:16px 20px 12px;border-bottom:1px solid var(--border);
+                      display:flex;align-items:center;justify-content:space-between;}
+    .svc-modal-title{font-size:16px;font-weight:700;color:var(--text);}
+    .svc-modal-close{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;}
+    .svc-modal-close:hover{color:var(--text);}
+    .svc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:16px;}
+    @media(max-width:440px){.svc-grid{grid-template-columns:1fr;}}
+    .svc-card{border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;
+              background:var(--surface2);transition:all .15s;text-align:center;}
+    .svc-card:hover{border-color:var(--brand);background:rgba(26,107,255,.07);}
+    .svc-card.active{border-color:#34d399;background:rgba(52,211,153,.07);}
+    .svc-card-icon{font-size:28px;margin-bottom:8px;}
+    .svc-card-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;}
+    .svc-card-desc{font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:8px;}
+    .svc-card-status{font-size:11px;font-weight:700;color:var(--muted);}
+    .svc-card.active .svc-card-status{color:#34d399;}
+    /* Add service button in tab bar */
+    .add-svc-btn{padding:7px 12px;border-radius:8px 8px 0 0;font-size:13px;font-weight:700;
+                 cursor:pointer;color:var(--muted);background:transparent;border:none;
+                 border-bottom:3px solid transparent;margin-bottom:-2px;
+                 display:flex;align-items:center;gap:4px;transition:color .15s;}
+    .add-svc-btn:hover{color:var(--brand);}
+
+  </style>
+  <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16.png">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#0F2235">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+</head>
+<body>
+  <input type="checkbox" id="chatToggle" class="chat-toggle" />
+  <label for="chatToggle" class="chat-fab" title="Chat">💬</label>
+  <label for="chatToggle" class="chat-overlay" aria-hidden="true"></label>
+
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <h1>Bodrum / Eskiçeşme Takvimi</h1>
+        <div class="sub">{{ t.cal_welcome }} <strong style="color: var(--brand)">{{ current_user.name }}</strong></div>
+      </div>
+      <div class="actions" style="position:relative;">
+        {% if current_user.is_admin %}
+        <a class="btn" href="{{ url_for('admin_panel') }}" style="background:rgba(255,59,48,0.12);border-color:rgba(255,59,48,0.3);color:#ff6b60;">{{ t.cal_admin_btn }}</a>
+        {% endif %}
+        <a class="btn" href="{{ url_for('settings') }}">{{ t.cal_settings_btn }}</a>
+        <div style="position:relative;display:inline-block;">
+          <button class="notif-btn" id="notifBtn" title="{{ t.cal_notif_title }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <span class="notif-badge" id="notifCount" style="display:none">0</span>
+          </button>
+        <!-- Notification modal overlay -->
+        <div class="notif-overlay" id="notifOverlay">
+          <div class="notif-modal">
+            <div class="notif-modal-header">
+              <span class="notif-modal-title">{{ t.cal_notif_title }}</span>
+              <button class="notif-modal-close" id="notifClose">×</button>
+            </div>
+            <div id="notifList"></div>
+          </div>
+        </div>
+        </div>
+        <a class="btn" href="#" id="logoutLink">{{ t.cal_logout }}</a>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div style="margin-bottom:16px;">
+          {% for cat, msg in messages %}
+            <div style="padding:12px 16px;border-radius:8px;font-size:14px;margin-bottom:6px;
+              {% if cat == 'error' %}background:#fee2e2;color:#7f1d1d;border:1px solid #fca5a5;
+              {% elif cat == 'success' %}background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;
+              {% else %}background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;{% endif %}">
+              {{ msg }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="page-tabs" id="mainTabBar">
+      <button class="page-tab active" data-tab="main">📅 Ana Takvim</button>
+      <span id="serviceTabBar" style="display:contents;"></span>
+      <button class="add-svc-btn" id="addServiceBtn" title="Servisler">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Servisler
+      </button>
+    </div>
+
+    <!-- ANA TAKVİM -->
+    <div class="page-tab-panel active" id="panel-main">
+      <div class="grid2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <h2>{{ t.cal_month_title }}</h2>
+              <div class="muted">{{ month_name }} {{ year }} · {{ t.cal_click_hint }}</div>
+            </div>
+            <div class="calendar-controls">
+              <span class="badge" id="dirtyBadge" style="display:none;">{{ t.cal_unsaved_badge }}</span>
+              <button class="btn" id="prevBtn">◀</button>
+              <div class="badge" id="monthTitle">—</div>
+              <button class="btn" id="nextBtn">▶</button>
+              <button class="btn primary" id="saveBtn">{{ t.save }}</button>
+              <button class="btn" id="yearViewBtn" title="Yıllık görünüm" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:6px 10px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                  <line x1="7" y1="14" x2="17" y2="14" stroke-width="1.5"/>
+                  <line x1="7" y1="18" x2="13" y2="18" stroke-width="1.5"/>
+                </svg>
+                365
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="cal-grid" id="calGrid"></div>
+            <div style="margin-top:14px;">
+              <div class="notice">{{ t.cal_notice }}</div>
+            </div>
+            <div style="margin-top:14px;">
+              <div class="legend" id="legend"></div>
+            </div>
+            <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+              <div class="badge" style="margin-bottom:10px;">{{ t.cal_weather }}</div>
+              <a class="weatherwidget-io" href="https://forecast7.com/en/37d0327d43/bodrum/" data-label_1="BODRUM" data-label_2="WEATHER" data-theme="original">BODRUM WEATHER</a>
+            </div>
+          </div>
+        </div>
+        <div class="card chat">
+          <div class="card-header">
+            <div class="card-title">
+              <h2>{{ t.cal_chat_title }}</h2>
+              <div class="muted">{{ t.cal_chat_sub }}</div>
+            </div>
+          </div>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-input">
+            <input id="chatInput" placeholder="{{ t.cal_chat_ph }}" />
+            <button class="btn primary" id="sendBtn">{{ t.cal_send }}</button>
+          </div>
+        </div>
+      </div>
+
+    <!-- Year Overview Overlay -->
+    <div class="year-overlay" id="yearOverlay">
+      <div class="year-modal">
+        <div class="year-modal-header">
+          <span class="year-modal-title" id="yearModalTitle">Yıl Takvimi</span>
+          <div class="year-nav">
+            <button class="year-nav-btn" id="yearPrev">◀</button>
+            <span class="year-nav-label" id="yearNavLabel">—</span>
+            <button class="year-nav-btn" id="yearNext">▶</button>
+          </div>
+          <button class="year-modal-close" id="yearClose">×</button>
+        </div>
+        <div class="year-legend" id="yearLegend"></div>
+        <div class="year-grid" id="yearGrid">
+          <div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--muted)">Yükleniyor…</div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- Service panels (populated dynamically by services.js) -->
+    <div id="svcPanels"></div>
+  </div>
+
+  <script>
+    !function(d,s,id){
+      var js,fjs=d.getElementsByTagName(s)[0];
+      if(!d.getElementById(id)){js=d.createElement(s);js.id=id;
+        js.src='https://weatherwidget.io/js/widget.min.js';
+        fjs.parentNode.insertBefore(js,fjs);}
+    }(document,'script','weatherwidget-io-js');
+  </script>
+  <script>
+    const STRINGS = {{ t | tojson | safe }};
+    STRINGS._lang = {{ lang | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='calendar.js') }}"></script>
+  <script src="{{ url_for('static', filename='private_calendar.js') }}"></script>
+  <script src="{{ url_for('static', filename='services.js') }}"></script>
+  <script src="{{ url_for('static', filename='rent.js') }}"></script>
+  <script src="{{ url_for('static', filename='shop_emoji.js') }}"></script>
+  <script src="{{ url_for('static', filename='shopping.js') }}"></script>
+
+  <!-- Language Switcher -->
+  <div id="langSwitcher" style="position:fixed;top:14px;right:14px;z-index:10001;">
+    <button id="langBtn"
+      style="background:rgba(10,15,30,0.88);backdrop-filter:blur(10px);
+             border:1px solid rgba(255,255,255,0.18);border-radius:8px;
+             padding:5px 9px;cursor:pointer;line-height:1;
+             display:flex;align-items:center;gap:5px;box-shadow:0 2px 10px rgba(0,0,0,0.4);">
+      {% if lang=="tr" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRTMwQTE3Ii8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iNSIgZmlsbD0iI2ZmZiIvPgogIDxjaXJjbGUgY3g9IjEzLjUiIGN5PSIxMCIgcj0iNCIgZmlsbD0iI0UzMEExNyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTgsMTAgMTkuNSw3LjIgMjIuNSw4IDIwLjgsMTAgMjIuNSwxMiAxOS41LDExLjgiIGZpbGw9IiNmZmYiLz4KPC9zdmc+" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="TR">{% endif %}{% if lang=="en" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDEyMTY5Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI0M4MTAyRSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE1LDAgVjIwIE0wLDEwIEgzMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYiLz4KICA8cGF0aCBkPSJNMTUsMCBWMjAgTTAsMTAgSDMwIiBzdHJva2U9IiNDODEwMkUiIHN0cm9rZS13aWR0aD0iNCIvPgo8L3N2Zz4=" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="EN">{% endif %}{% if lang=="de" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB5PSI3IiB3aWR0aD0iMzAiIGhlaWdodD0iNiIgZmlsbD0iI0QwMCIvPgogIDxyZWN0IHk9IjEzIiB3aWR0aD0iMzAiIGhlaWdodD0iNyIgZmlsbD0iI0ZGQ0UwMCIvPgo8L3N2Zz4=" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="DE">{% endif %}
+      <svg width="9" height="5" viewBox="0 0 9 5" fill="none" style="opacity:0.55;flex-shrink:0;">
+        <path d="M1 1l3.5 3L8 1" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="langMenu"
+      style="display:none;position:absolute;top:calc(100% + 5px);right:0;
+             background:rgba(10,15,30,0.95);backdrop-filter:blur(14px);
+             border:1px solid rgba(255,255,255,0.13);border-radius:10px;
+             overflow:hidden;box-shadow:0 10px 32px rgba(0,0,0,0.5);min-width:100px;">
+      
+      <a href="{{ url_for('set_lang', lang='tr') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='tr'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='tr'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='tr'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRTMwQTE3Ii8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iNSIgZmlsbD0iI2ZmZiIvPgogIDxjaXJjbGUgY3g9IjEzLjUiIGN5PSIxMCIgcj0iNCIgZmlsbD0iI0UzMEExNyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTgsMTAgMTkuNSw3LjIgMjIuNSw4IDIwLjgsMTAgMjIuNSwxMiAxOS41LDExLjgiIGZpbGw9IiNmZmYiLz4KPC9zdmc+" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="TR">
+        <span style="min-width:28px">TR</span>
+        {%if lang=='tr'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+      <a href="{{ url_for('set_lang', lang='en') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='en'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='en'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='en'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDEyMTY5Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI0M4MTAyRSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE1LDAgVjIwIE0wLDEwIEgzMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYiLz4KICA8cGF0aCBkPSJNMTUsMCBWMjAgTTAsMTAgSDMwIiBzdHJva2U9IiNDODEwMkUiIHN0cm9rZS13aWR0aD0iNCIvPgo8L3N2Zz4=" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="EN">
+        <span style="min-width:28px">EN</span>
+        {%if lang=='en'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+      <a href="{{ url_for('set_lang', lang='de') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='de'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='de'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='de'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB5PSI3IiB3aWR0aD0iMzAiIGhlaWdodD0iNiIgZmlsbD0iI0QwMCIvPgogIDxyZWN0IHk9IjEzIiB3aWR0aD0iMzAiIGhlaWdodD0iNyIgZmlsbD0iI0ZGQ0UwMCIvPgo8L3N2Zz4=" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="DE">
+        <span style="min-width:28px">DE</span>
+        {%if lang=='de'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var btn=document.getElementById('langBtn');
+      var menu=document.getElementById('langMenu');
+      if(!btn||!menu) return;
+      btn.addEventListener('click',function(e){
+        e.stopPropagation();
+        menu.style.display=menu.style.display==='block'?'none':'block';
+      });
+      document.addEventListener('click',function(e){
+        if(!document.getElementById('langSwitcher').contains(e.target))
+          menu.style.display='none';
+      });
+    })();
+  </script>
+
+  <!-- Theme Toggle -->
+  <button id="themeToggleBtn"
+    style="position:fixed;top:14px;right:104px;z-index:10001;
+           width:34px;height:34px;border-radius:8px;border:1px solid;
+           display:flex;align-items:center;justify-content:center;
+           cursor:pointer;transition:background .2s,border-color .2s,color .2s;
+           background:var(--th-btn-bg,rgba(240,235,223,0.92));
+           border-color:var(--th-btn-border,#D0CCC3);
+           color:var(--th-btn-color,#5A5650);
+           backdrop-filter:blur(8px);"
+    title="Temayı değiştir">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+  <script src="{{ url_for('static', filename='theme-toggle.js') }}"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.register_title }}</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;
+               background:#F0EBDF;display:flex;align-items:center;justify-content:center;padding:20px;color:#2D2820; }
+        .register-container { background:#FDFAF5;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);
+                              padding:48px 40px;width:100%;max-width:400px;border:1px solid #D0CCC3; }
+        .register-header { text-align:center;margin-bottom:32px; }
+        .register-header h2 { color:#2D2820;font-size:24px;font-weight:600;margin-bottom:8px;letter-spacing:-0.5px; }
+        .register-header p { color:#9A8E77;font-size:15px; }
+        .form-group { margin-bottom:20px; }
+        .form-group label { display:block;color:#2D2820;font-size:14px;font-weight:500;margin-bottom:8px; }
+        .form-input { width:100%;padding:14px 16px;border:1.5px solid #D0CCC3;border-radius:8px;font-size:15px;
+                      transition:border-color .2s,box-shadow .2s;background:#EDE8DC;color:#2D2820;font-family:inherit; }
+        .form-input:focus { outline:none;border-color:#2C6E8A;box-shadow:0 0 0 3px rgba(44,110,138,.12); }
+        .form-input::placeholder { color:#9A8E77; }
+        .form-input[type="color"] { height:48px;padding:4px;cursor:pointer; }
+        .form-input[type="color"]::-webkit-color-swatch-wrapper { padding:0; }
+        .form-input[type="color"]::-webkit-color-swatch { border:none;border-radius:4px; }
+        .register-button { width:100%;padding:14px 16px;background:#2C6E8A;color:white;border:none;border-radius:8px;
+                           font-size:16px;font-weight:500;cursor:pointer;transition:background .2s;
+                           margin-bottom:24px;font-family:inherit; }
+        .register-button:hover { background:#1A4A5C; }
+        .register-links { text-align:center;display:flex;flex-direction:column;gap:12px; }
+        .register-links a { color:#2C6E8A;text-decoration:none;font-size:14px;padding:8px 12px;border-radius:6px;transition:background .2s; }
+        .register-links a:hover { background:#E5DFD3; }
+        .messages { margin-top:20px; }
+        .messages ul { list-style:none; }
+        .messages li { background:#FFF3CD;color:#856404;padding:12px 16px;border-radius:8px;margin-bottom:8px;font-size:14px;border:1px solid #FFEAA7; }
+        .messages li.error { background:#F8D7DA;color:#721C24;border-color:#F1AEB5; }
+        .messages li.success { background:#D1E7DD;color:#0A3622;border-color:#A3CFBB; }
+        @media(max-width:480px){ .register-container{padding:32px 24px;} }
+        
+    
+        /* ── Dark Theme ── */
+        [data-theme="dark"] body {
+            background:#1b1a19 !important;color:#F0EAE0 !important;
+        }
+        [data-theme="dark"] .box,
+        [data-theme="dark"] .login-container,
+        [data-theme="dark"] .register-container,
+        [data-theme="dark"] .container {
+            background:#21201f !important;border-color:#2f2c27 !important;
+            box-shadow:0 4px 16px rgba(0,0,0,.28) !important;
+        }
+        [data-theme="dark"] h2,
+        [data-theme="dark"] .login-header h2,
+        [data-theme="dark"] .register-header h2,
+        [data-theme="dark"] .settings-header h2 { color:#F0EAE0 !important; }
+        [data-theme="dark"] p.lead,
+        [data-theme="dark"] .login-header p,
+        [data-theme="dark"] .register-header p { color:#7A6E5A !important; }
+        [data-theme="dark"] .form-group label { color:#C8BEB0 !important; }
+        [data-theme="dark"] .form-input {
+            background:#262420 !important;border-color:#2f2c27 !important;color:#F0EAE0 !important;
+        }
+        [data-theme="dark"] .form-input:focus {
+            border-color:#3E8FA8 !important;box-shadow:0 0 0 3px rgba(62,143,168,.15) !important;
+        }
+        [data-theme="dark"] .form-input::placeholder { color:#7A6E5A !important; }
+        [data-theme="dark"] .form-input:disabled { background:#21201f !important;color:#7A6E5A !important; }
+        [data-theme="dark"] .btn,
+        [data-theme="dark"] .login-button,
+        [data-theme="dark"] .register-button,
+        [data-theme="dark"] .update-button {
+            background:#3E8FA8 !important;color:#F0EAE0 !important;
+        }
+        [data-theme="dark"] .btn:hover,
+        [data-theme="dark"] .login-button:hover,
+        [data-theme="dark"] .register-button:hover,
+        [data-theme="dark"] .update-button:hover { background:#2C6E8A !important; }
+        [data-theme="dark"] .links a,
+        [data-theme="dark"] .login-links a,
+        [data-theme="dark"] .register-links a { color:#6BAFC4 !important; }
+        [data-theme="dark"] .links a:hover,
+        [data-theme="dark"] .login-links a:hover,
+        [data-theme="dark"] .register-links a:hover { background:#262420 !important; }
+        [data-theme="dark"] .top-right a {
+            background:#262420 !important;color:#7A6E5A !important;border-color:#2f2c27 !important;
+        }
+        [data-theme="dark"] .top-right a:hover { background:#2f2c27 !important;color:#C8BEB0 !important; }
+        [data-theme="dark"] .top-right a:last-child { background:#7A2218 !important;color:#F0EAE0 !important;border-color:#7A2218 !important; }
+        [data-theme="dark"] .top-right a:last-child:hover { background:#5C1810 !important; }
+        /* toggle button dark */
+        [data-theme="dark"] #themeToggleBtn {
+            --th-btn-bg: rgba(33,32,31,0.92);
+            --th-btn-border: #2f2c27;
+            --th-btn-color: #7A6E5A;
+        }
+        </style>
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#0F2235">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+</head>
+<body>
+    <div class="register-container">
+        <div class="register-header">
+            <h2>{{ t.register_title }}</h2>
+            <p>{{ t.register_subtitle }}</p>
+        </div>
+        <form method="POST" action="{{ url_for('register') }}">
+            <div class="form-group">
+                <input type="text" name="username" class="form-input" placeholder="{{ t.username }}" required />
+            </div>
+            <div class="form-group">
+                <input type="email" name="email" class="form-input" placeholder="{{ t.email }}" required autocomplete="email"/>
+            </div>
+            <div class="form-group">
+                <input type="password" name="password" class="form-input" placeholder="{{ t.password }}" required />
+            </div>
+            <div class="form-group">
+                <label for="color">{{ t.fav_color }}</label>
+                <input type="color" id="color" name="color" class="form-input" value="#007AFF" required />
+            </div>
+            <button type="submit" class="register-button">{{ t.register_btn }}</button>
+        </form>
+        <div class="register-links">
+            <a href="{{ url_for('login') }}">{{ t.already_account }}</a>
+            <a href="{{ url_for('index') }}">{{ t.home_link }}</a>
+        </div>
+        <div class="messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}<ul>
+                {% for cat, msg in messages %}<li class="{{ cat }}">{{ msg }}</li>{% endfor %}
+                </ul>{% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
+
+  <!-- Language Switcher (flag-based, mobile-friendly) -->
+  <div id="langSwitcher" style="position:fixed;top:16px;right:16px;z-index:10000;">
+    <button id="langBtn"
+      style="background:rgba(15,18,32,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);
+             border-radius:10px;padding:6px 10px;cursor:pointer;font-size:20px;line-height:1;
+             display:flex;align-items:center;gap:5px;color:#2D2820;box-shadow:0 2px 10px rgba(0,0,0,0.3);">
+      <span id="activeLangFlag">{% if lang=="tr" %}🇹🇷{% elif lang=="en" %}🇬🇧{% else %}🇩🇪{% endif %}</span>
+      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="opacity:0.6">
+        <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="langMenu"
+      style="display:none;position:absolute;top:calc(100% + 6px);right:0;
+             background:rgba(15,18,32,0.95);backdrop-filter:blur(12px);
+             border:1px solid rgba(255,255,255,0.12);border-radius:10px;
+             overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);min-width:110px;">
+      {% set flag_map = {"tr":"🇹🇷","en":"🇬🇧","de":"🇩🇪"} %}
+      {% for lc in ["tr","en","de"] %}
+      <a href="{{ url_for('set_lang', lang=lc) }}"
+        style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{% if lang==lc %}#60a5fa{% else %}rgba(255,255,255,0.75){% endif %};
+               background:{% if lang==lc %}rgba(26,107,255,0.15){% else %}transparent{% endif %};
+               transition:background .15s;">
+        <span style="font-size:18px">{{ flag_map[lc] }}</span>
+        <span>{{ lang_names[lc] }}</span>
+        {% if lang==lc %}<span style="margin-left:auto;color:#60a5fa;font-size:11px">✓</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  <script>
+    document.addEventListener('click', function(e) {
+      const sw = document.getElementById('langSwitcher');
+      if (sw && !sw.contains(e.target)) {
+        const m = document.getElementById('langMenu');
+        if (m) m.style.display = 'none';
+      }
+    });
+    document.getElementById('langBtn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      const m = document.getElementById('langMenu');
+      m.style.display = m.style.display === 'none' ? 'block' : 'none';
+    });
+  </script>
+  <!-- Language Switcher -->
+  <div id="langSwitcher" style="position:fixed;top:14px;right:14px;z-index:10001;">
+    <button id="langBtn"
+      style="background:rgba(10,15,30,0.88);backdrop-filter:blur(10px);
+             border:1px solid rgba(255,255,255,0.18);border-radius:8px;
+             padding:5px 9px;cursor:pointer;line-height:1;
+             display:flex;align-items:center;gap:5px;box-shadow:0 2px 10px rgba(0,0,0,0.4);">
+      {% if lang=="tr" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRTMwQTE3Ii8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iNSIgZmlsbD0iI2ZmZiIvPgogIDxjaXJjbGUgY3g9IjEzLjUiIGN5PSIxMCIgcj0iNCIgZmlsbD0iI0UzMEExNyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTgsMTAgMTkuNSw3LjIgMjIuNSw4IDIwLjgsMTAgMjIuNSwxMiAxOS41LDExLjgiIGZpbGw9IiNmZmYiLz4KPC9zdmc+" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="TR">{% endif %}{% if lang=="en" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDEyMTY5Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI0M4MTAyRSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE1LDAgVjIwIE0wLDEwIEgzMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYiLz4KICA8cGF0aCBkPSJNMTUsMCBWMjAgTTAsMTAgSDMwIiBzdHJva2U9IiNDODEwMkUiIHN0cm9rZS13aWR0aD0iNCIvPgo8L3N2Zz4=" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="EN">{% endif %}{% if lang=="de" %}<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB5PSI3IiB3aWR0aD0iMzAiIGhlaWdodD0iNiIgZmlsbD0iI0QwMCIvPgogIDxyZWN0IHk9IjEzIiB3aWR0aD0iMzAiIGhlaWdodD0iNyIgZmlsbD0iI0ZGQ0UwMCIvPgo8L3N2Zz4=" width="22" height="14" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="DE">{% endif %}
+      <svg width="9" height="5" viewBox="0 0 9 5" fill="none" style="opacity:0.55;flex-shrink:0;">
+        <path d="M1 1l3.5 3L8 1" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="langMenu"
+      style="display:none;position:absolute;top:calc(100% + 5px);right:0;
+             background:rgba(10,15,30,0.95);backdrop-filter:blur(14px);
+             border:1px solid rgba(255,255,255,0.13);border-radius:10px;
+             overflow:hidden;box-shadow:0 10px 32px rgba(0,0,0,0.5);min-width:100px;">
+      
+      <a href="{{ url_for('set_lang', lang='tr') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='tr'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='tr'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='tr'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjRTMwQTE3Ii8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iNSIgZmlsbD0iI2ZmZiIvPgogIDxjaXJjbGUgY3g9IjEzLjUiIGN5PSIxMCIgcj0iNCIgZmlsbD0iI0UzMEExNyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTgsMTAgMTkuNSw3LjIgMjIuNSw4IDIwLjgsMTAgMjIuNSwxMiAxOS41LDExLjgiIGZpbGw9IiNmZmYiLz4KPC9zdmc+" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="TR">
+        <span style="min-width:28px">TR</span>
+        {%if lang=='tr'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+      <a href="{{ url_for('set_lang', lang='en') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='en'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='en'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='en'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDEyMTY5Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTAsMCBMMzAsMjAgTTMwLDAgTDAsMjAiIHN0cm9rZT0iI0M4MTAyRSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE1LDAgVjIwIE0wLDEwIEgzMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYiLz4KICA8cGF0aCBkPSJNMTUsMCBWMjAgTTAsMTAgSDMwIiBzdHJva2U9IiNDODEwMkUiIHN0cm9rZS13aWR0aD0iNCIvPgo8L3N2Zz4=" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="EN">
+        <span style="min-width:28px">EN</span>
+        {%if lang=='en'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+      <a href="{{ url_for('set_lang', lang='de') }}"
+        style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+               text-decoration:none;font-size:13px;font-weight:600;
+               color:{%if lang=='de'%}#60a5fa{%else%}rgba(255,255,255,0.8){%endif%};
+               background:{%if lang=='de'%}rgba(26,107,255,0.2){%else%}transparent{%endif%};
+               transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='{%if lang=='de'%}rgba(26,107,255,0.2){%else%}transparent{%endif%}'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMCAyMCI+CiAgPHJlY3Qgd2lkdGg9IjMwIiBoZWlnaHQ9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB5PSI3IiB3aWR0aD0iMzAiIGhlaWdodD0iNiIgZmlsbD0iI0QwMCIvPgogIDxyZWN0IHk9IjEzIiB3aWR0aD0iMzAiIGhlaWdodD0iNyIgZmlsbD0iI0ZGQ0UwMCIvPgo8L3N2Zz4=" width="18" height="12" style="border-radius:2px;vertical-align:middle;display:inline-block;" alt="DE">
+        <span style="min-width:28px">DE</span>
+        {%if lang=='de'%}<span style="margin-left:auto;color:#60a5fa;font-size:12px">✓</span>{%endif%}
+      </a>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var btn=document.getElementById('langBtn');
+      var menu=document.getElementById('langMenu');
+      if(!btn||!menu) return;
+      btn.addEventListener('click',function(e){
+        e.stopPropagation();
+        menu.style.display=menu.style.display==='block'?'none':'block';
+      });
+      document.addEventListener('click',function(e){
+        if(!document.getElementById('langSwitcher').contains(e.target))
+          menu.style.display='none';
+      });
+    })();
+  </script>
+
+  <!-- Theme Toggle -->
+  <button id="themeToggleBtn"
+    style="position:fixed;top:14px;right:104px;z-index:10001;
+           width:34px;height:34px;border-radius:8px;border:1px solid;
+           display:flex;align-items:center;justify-content:center;
+           cursor:pointer;transition:background .2s,border-color .2s,color .2s;
+           background:var(--th-btn-bg,rgba(240,235,223,0.92));
+           border-color:var(--th-btn-border,#D0CCC3);
+           color:var(--th-btn-color,#5A5650);
+           backdrop-filter:blur(8px);"
+    title="Temayı değiştir">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+  <script src="{{ url_for('static', filename='theme-toggle.js') }}"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js');
+    }
+  </script>
+</body>
+</html>

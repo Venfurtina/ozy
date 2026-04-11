@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>PPL(A) Lernplattform – {{ current_user.name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='learn.css') }}"/>
+  <script>window.CURRENT_USER = {{ current_user | tojson | safe }};</script>
+
+  <script>
+    // Apply theme before paint to prevent flash
+    (function(){
+      var t=localStorage.getItem('theme');
+      if(!t) t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+      document.documentElement.setAttribute('data-theme',t);
+    })();
+  </script>
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#0F2235">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+</head>
+<body>
+
+<!-- ══ TOC Overlay (slide-in from right) ════════════════════════════════════ -->
+<div class="toc-overlay" id="tocOverlay" onclick="closeTOC()"></div>
+<aside class="toc-panel" id="tocPanel">
+  <div class="toc-hdr">
+    <div class="toc-hdr-left">
+      <span class="toc-icon">📋</span>
+      <div>
+        <div class="toc-title">Inhaltsverzeichnis</div>
+        <div class="toc-sub">Alle Fächer & Kapitel</div>
+      </div>
+    </div>
+    <button class="toc-close" onclick="closeTOC()">✕</button>
+  </div>
+  <div class="toc-search-wrap">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input id="tocSearchInput" placeholder="Kapitel suchen…" autocomplete="off" oninput="filterTOC(this.value)"/>
+  </div>
+  <div class="toc-body" id="tocBody">
+    <div class="toc-loading">Laden…</div>
+  </div>
+</aside>
+
+<!-- ══ Main Container ═══════════════════════════════════════════════════════ -->
+<div class="lrn-container">
+
+  <!-- ── Topbar ─────────────────────────────────────────────────────────── -->
+  <nav class="lrn-topbar">
+    <div class="lrn-brand">
+      <div class="brand-logo">
+        <span class="brand-plane">✈</span>
+        <div>
+          <div class="brand-title">PPL(A) Lernplattform</div>
+          <div class="brand-sub">EASA · LBA · ECQB-konform</div>
+        </div>
+      </div>
+    </div>
+    <div class="lrn-actions">
+      <button class="btn btn-sim" onclick="openSimModal()" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">🎯 Prüfungs-Simulation</button>
+      <button class="btn btn-wrong" id="btnWrong" style="display:none" onclick="openWrongModal()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Fehler wiederholen
+        <span class="wrong-count" id="wrongCount">0</span>
+      </button>
+      <a class="btn" href="{{ url_for('calendar_view') }}"
+         style="background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.25);font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Ana Sayfa
+      </a>
+      <a class="btn" href="{{ url_for('settings') }}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Einstellungen
+      </a>
+      <a class="btn btn-logout" href="{{ url_for('logout') }}">Abmelden</a>
+    </div>
+  </nav>
+
+  <!-- ── Body ───────────────────────────────────────────────────────────── -->
+  <div class="lrn-body">
+
+    <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+    <aside class="lrn-sidebar">
+
+      <!-- Search Card -->
+      <div class="sb-card">
+        <div class="sb-hdr">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Schnellsuche
+        </div>
+        <div class="search-wrap">
+          <div class="search-inner">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="searchInput" placeholder="z. B. Stall, QNH, METAR, Magneto…" autocomplete="off"/>
+            <kbd class="search-kbd">⌘K</kbd>
+          </div>
+          <div id="searchResults" class="search-results"></div>
+        </div>
+      </div>
+
+      <!-- Fächer List -->
+      <div class="sb-card">
+        <div class="sb-hdr">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Prüfungsfächer
+        </div>
+        <div class="subj-list" id="subjList">
+          <div class="subj-skeleton"></div>
+          <div class="subj-skeleton"></div>
+          <div class="subj-skeleton"></div>
+        </div>
+      </div>
+
+      <!-- Progress Stats -->
+      <div class="sb-card sb-stats">
+        <div class="sb-hdr">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Mein Fortschritt
+        </div>
+        <div class="stats-body">
+          <div class="stat-row">
+            <div class="stat-item">
+              <div class="stat-val green" id="stCorrect">0</div>
+              <div class="stat-lbl">Richtig</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-val red" id="stWrong">0</div>
+              <div class="stat-lbl">Falsch</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-val blue" id="stPct">–%</div>
+              <div class="stat-lbl">Quote</div>
+            </div>
+          </div>
+          <div class="prog-bar-wrap">
+            <div class="prog-bar-bg">
+              <div class="prog-bar-fg" id="progBar" style="width:0%"></div>
+            </div>
+            <span class="prog-bar-lbl" id="progLbl">0 Kapitel bewertet</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Willkommen info for empty state -->
+      <div class="sb-card" id="sbWelcome" style="display:none">
+        <div class="sb-hdr">ℹ️ Hinweis</div>
+        <div style="padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.65;">
+          Inhalte werden über die PDF-Pipeline geladen.<br><br>
+          Führe <code style="color:var(--acc2);background:rgba(59,130,246,.1);padding:2px 5px;border-radius:4px;font-size:11px;">python extract_pdf.py</code> aus, um Kapitel zu befüllen.
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ── Main ─────────────────────────────────────────────────────────── -->
+    <main class="lrn-main" id="lrnMain">
+
+      <!-- Hero Card -->
+      <div class="hero-card">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          EASA Part-FCL · LBA · ECQB-orientiert
+        </div>
+        <h2 class="hero-title">PPL(A) Theorieausbildung</h2>
+        <p class="hero-desc">
+          Alle Prüfungsfächer strukturiert aufbereitet — direkt aus dem Lehrbuch.
+          Lerne kapitelweise, teste dich mit dem integrierten Quiz und verfolge deinen Fortschritt.
+        </p>
+        <div class="hero-nums">
+          <div class="hn">
+            <div class="hn-n" id="heroSubj">–</div>
+            <div class="hn-l">Fächer</div>
+          </div>
+          <div class="hn">
+            <div class="hn-n" id="heroChap">–</div>
+            <div class="hn-l">Kapitel</div>
+          </div>
+          <div class="hn">
+            <div class="hn-n" id="heroQ">–</div>
+            <div class="hn-l">Quizfragen</div>
+          </div>
+          <div class="hn">
+            <div class="hn-n score-num" id="heroScore">–%</div>
+            <div class="hn-l">Quiz-Score</div>
+          </div>
+        </div>
+        <div class="hero-pilot">
+          <div class="pilot-avatar" style="background:{{ current_user.color }}20;border-color:{{ current_user.color }}40;color:{{ current_user.color }}">
+            {{ current_user.name[0] | upper }}
+          </div>
+          <div>
+            <div class="pilot-name">{{ current_user.name }}</div>
+            <div class="pilot-sub">PPL(A)-Anwärter · EASA-Ausbildung</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subject overview -->
+      <div class="sov-card" id="sovCard">
+        <div class="sov-hdr">
+          <span class="sov-icon" id="sovIcon">📚</span>
+          <div class="sov-hdr-text">
+            <div class="sov-title" id="sovTitle">Fach auswählen</div>
+            <div class="sov-meta"  id="sovMeta">Wähle links ein Prüfungsfach aus, um loszulegen.</div>
+          </div>
+        </div>
+        <div class="sov-body" id="sovBody">
+          <p class="sov-overview" id="sovOverview">
+            Diese Plattform deckt alle PPL(A)-Theorieprüfungsfächer nach EASA/LBA-Standard ab.
+            Inhalte basieren ausschließlich auf dem offiziellen Lehrbuch.
+          </p>
+          <div class="sov-tags" id="sovTags">
+            <span class="sov-tag">EASA-konform</span>
+            <span class="sov-tag">LBA-orientiert</span>
+            <span class="sov-tag">ECQB-Rahmen</span>
+            <span class="sov-tag">Kapitelquiz</span>
+            <span class="sov-tag">Fortschrittsverfolgung</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chapters container -->
+      <div id="chaptersWrap" class="chapters-wrap"></div>
+
+      <!-- Empty state (shown when DB has no content) -->
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="empty-icon">✈️</div>
+        <h3>Noch kein Inhalt vorhanden</h3>
+        <p>Verwende das PDF-Extraktionsskript, um Lehrbuchinhalte in die Datenbank zu laden.</p>
+        <code class="empty-cmd">python extract_pdf.py &lt;pdf_datei&gt; &lt;fach_id&gt; &lt;fach_titel&gt;</code>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══ Floating TOC Button ══════════════════════════════════════════════════ -->
+<button class="toc-fab" id="tocFab" onclick="openTOC()" title="Inhaltsverzeichnis">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+    <line x1="3" y1="6"  x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>
+  <span>Inhalt</span>
+</button>
+
+<!-- ══ Wrong Answers Modal ══════════════════════════════════════════════════ -->
+<div class="modal-ov" id="wrongModal">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <div>
+        <h2 class="modal-title">❌ Fehler wiederholen</h2>
+        <p class="modal-sub" id="modalSubtitle">Alle falsch beantworteten Fragen.</p>
+      </div>
+      <button class="modal-close" onclick="closeWrongModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div class="modal-loading">Laden…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile sidebar toggle -->
+<button class="sb-mobile-toggle" id="sbToggle" onclick="toggleMobileSidebar()">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+    <line x1="3" y1="6"  x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>
+</button>
+
+<!-- ══ Image Zoom Modal ══════════════════════════════════════════════════════ -->
+<div id="imgZoomModal" class="img-zoom-overlay" onclick="closeImgZoom(event)">
+  <button class="img-zoom-close" onclick="closeImgZoom()">✕</button>
+  <img id="imgZoomImg" src="" class="img-zoom-img" alt="">
+</div>
+
+<script src="{{ url_for('static', filename='learn.js') }}"></script>
+
+  <!-- Theme Toggle -->
+  <button id="themeToggleBtn"
+    style="position:fixed;top:14px;right:104px;z-index:10001;
+           width:34px;height:34px;border-radius:8px;border:1px solid;
+           display:flex;align-items:center;justify-content:center;
+           cursor:pointer;transition:background .2s,border-color .2s,color .2s;
+           background:var(--th-btn-bg,rgba(240,235,223,0.92));
+           border-color:var(--th-btn-border,#D0CCC3);
+           color:var(--th-btn-color,#5A5650);
+           backdrop-filter:blur(8px);"
+    title="Temayı değiştir">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+  <script src="{{ url_for('static', filename='theme-toggle.js') }}"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js');
+    }
+  </script>
+</body>
+</html>
+<!-- ══ Test Simulation Modal ════════════════════════════════════════════════ -->
+<div class="modal-ov" id="simModal">
+  <div class="modal-box sim-modal-box">
+    <div class="modal-hdr">
+      <div>
+        <h2 class="modal-title">🎯 Prüfungs-Simulation</h2>
+        <p class="modal-sub" id="simModalSub">EASA-konforme Prüfungssimulation</p>
+      </div>
+      <button class="modal-close" onclick="closeSimModal()">✕</button>
+    </div>
+    <div class="modal-body" id="simModalBody">
+      <!-- config view, active quiz view, or history view injected by JS -->
+    </div>
+  </div>
+</div>
