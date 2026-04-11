@@ -323,7 +323,7 @@ TRANSLATIONS = {
         "admin_confirm_toggle": "kullanıcısının admin durumu değiştirilecek.",
         "admin_confirm_delete": "ve tüm verileri (rezervasyonlar, yorumlar, quiz skorları) kalıcı olarak silinecek.\n\nEmin misiniz?",
         # ── Calendar ─────────────────────────────────────────────
-        "cal_title": "Bodrum / Güzelyalı Takvimi",
+        "cal_title": "Bodrum / Eskiçeşme Takvimi",
         "cal_welcome": "Hoş geldin,",
         "cal_tab_main": "📅 Ana Takvim",
         "cal_tab_private": "🔒 Kişisel Takvimler",
@@ -465,7 +465,7 @@ TRANSLATIONS = {
         "admin_confirm_pass": "user's password will be changed. Are you sure?",
         "admin_confirm_toggle": "user's admin status will be changed.",
         "admin_confirm_delete": "and all their data (reservations, comments, quiz scores) will be permanently deleted.\n\nAre you sure?",
-        "cal_title": "Bodrum / Güzelyalı Calendar",
+        "cal_title": "Bodrum / Eskiçeşme Calendar",
         "cal_welcome": "Welcome,",
         "cal_tab_main": "📅 Main Calendar",
         "cal_tab_private": "🔒 Personal Calendars",
@@ -603,7 +603,7 @@ TRANSLATIONS = {
         "admin_confirm_pass": "Passwort wird geändert. Sind Sie sicher?",
         "admin_confirm_toggle": "Admin-Status wird geändert.",
         "admin_confirm_delete": "und alle Daten (Reservierungen, Kommentare, Quiz-Ergebnisse) werden dauerhaft gelöscht.\n\nSind Sie sicher?",
-        "cal_title": "Bodrum / Güzelyalı Kalender",
+        "cal_title": "Bodrum / Eskiçeşme Kalender",
         "cal_welcome": "Willkommen,",
         "cal_tab_main": "📅 Hauptkalender",
         "cal_tab_private": "🔒 Persönliche Kalender",
@@ -2477,6 +2477,16 @@ def rent_notifications():
         ORDER BY rpa.due_date
     """, (user_id, today, soon)).fetchall()
     return jsonify({"success": True, "items": [dict(r) for r in rows]})
+
+
+@app.route("/sw.js")
+def service_worker():
+    return app.send_static_file("sw.js"), 200, {"Content-Type": "application/javascript"}
+
+
+@app.route("/manifest.json")
+def manifest():
+    return app.send_static_file("manifest.json"), 200, {"Content-Type": "application/json"}
 
 
 if __name__ == "__main__":
