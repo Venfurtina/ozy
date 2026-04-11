@@ -239,6 +239,7 @@
 
     <div class="page-tabs" id="mainTabBar">
       <button class="page-tab active" data-tab="main">📅 Ana Takvim</button>
+      <button class="page-tab" data-tab="bodrum" id="bodrumTab">🔥 Bodrum</button>
       <span id="serviceTabBar" style="display:contents;"></span>
       <button class="add-svc-btn" id="addServiceBtn" title="Servisler">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -246,6 +247,57 @@
         </svg>
         Servisler
       </button>
+    </div>
+
+    <!-- BODRUM UYARI PANELİ -->
+    <div class="page-tab-panel" id="panel-bodrum">
+      <div class="grid2" style="grid-template-columns:1fr 1fr;gap:18px">
+
+        <!-- Yangın Harita Kartı -->
+        <div class="card" style="display:flex;flex-direction:column">
+          <div class="card-header" style="flex-shrink:0">
+            <div class="card-title">
+              <h2>🔥 Aktif Yangın Haritası</h2>
+              <div class="muted" id="fireSourceLabel">EFFIS/Copernicus · Bodrum 100km · VIIRS</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span id="fireTimestamp" style="font-size:11px;color:var(--muted)"></span>
+              <button class="btn" id="fireRefreshBtn" onclick="loadFire()">↻</button>
+            </div>
+          </div>
+          <!-- Harita -->
+          <div id="fireMapWrap" style="flex:1;min-height:400px;position:relative;border-radius:0 0 10px 10px;overflow:hidden">
+            <div id="fireMap" style="width:100%;height:400px"></div>
+            <!-- Yangın sayısı badge -->
+            <div id="fireBadge" style="display:none;position:absolute;top:10px;right:10px;z-index:1000;
+                 background:rgba(239,68,68,0.92);color:#fff;padding:5px 12px;border-radius:20px;
+                 font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
+            <!-- Yükleniyor overlay -->
+            <div id="fireMapLoading" style="position:absolute;inset:0;background:rgba(0,0,0,.45);
+                 display:flex;align-items:center;justify-content:center;z-index:999;border-radius:0 0 10px 10px">
+              <div style="color:#fff;font-size:13px">🔥 Yangın verisi alınıyor…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Haberler Kartı -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <h2>📰 Yerel Haberler</h2>
+              <div class="muted">haberbodrum.net · bodrumgundem.com · 🔥 yangın öncelikli</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span id="newsTimestamp" style="font-size:11px;color:var(--muted)"></span>
+              <button class="btn" id="newsRefreshBtn" onclick="loadNews()">↻</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0;max-height:520px;overflow-y:auto" id="newsBody">
+            <div style="text-align:center;padding:32px;color:var(--muted)">Yükleniyor…</div>
+          </div>
+        </div>
+
+      </div>
     </div>
 
     <!-- ANA TAKVİM -->
@@ -440,5 +492,198 @@
       navigator.serviceWorker.register('/sw.js');
     }
   </script>
+
+<script>
+/* ── Tab switching ─────────────────────────────────────────────────────── */
+document.querySelectorAll('.page-tab[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.page-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page-tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = document.getElementById('panel-' + btn.dataset.tab);
+    if (panel) {
+      panel.classList.add('active');
+      if (btn.dataset.tab === 'bodrum' && !bodrumLoaded) {
+        bodrumLoaded = true;
+        loadFire();
+        loadNews();
+      }
+    }
+  });
+});
+let bodrumLoaded = false;
+
+/* ── Yangın Haritası ───────────────────────────────────────────────────── */
+let fireMap = null;
+let fireMarkers = [];
+let fireLeafletReady = false;
+
+function ensureFireLeaflet(cb) {
+  if (fireLeafletReady) { cb(); return; }
+  // Leaflet zaten yüklüyse (PPL modülünden) doğrudan kullan
+  if (window.L) { fireLeafletReady = true; cb(); return; }
+  const lcs = document.createElement('link');
+  lcs.rel = 'stylesheet';
+  lcs.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+  document.head.appendChild(lcs);
+  const ls = document.createElement('script');
+  ls.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  ls.onload = () => { fireLeafletReady = true; cb(); };
+  document.head.appendChild(ls);
+}
+
+function initFireMap() {
+  if (fireMap) return;
+  fireMap = L.map('fireMap', { zoomControl: true }).setView([37.03, 27.43], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 16
+  }).addTo(fireMap);
+  // Bodrum merkez marker
+  const homeIcon = L.divIcon({
+    html: '<div style="font-size:20px;line-height:1" title="Eskiçeşme">🏠</div>',
+    className: '', iconAnchor: [10, 10]
+  });
+  L.marker([37.037, 27.424], { icon: homeIcon })
+    .addTo(fireMap)
+    .bindPopup('<b>Bodrum / Eskiçeşme</b>');
+  // 100km yarıçap dairesi — görsel referans
+  L.circle([37.03, 27.43], {
+    radius: 100000,
+    color: 'rgba(239,68,68,0.35)',
+    fillColor: 'rgba(239,68,68,0.04)',
+    fillOpacity: 1,
+    weight: 1.5,
+    dashArray: '6 4'
+  }).addTo(fireMap);
+}
+
+async function loadFire() {
+  const ts = document.getElementById('fireTimestamp');
+  const loading = document.getElementById('fireMapLoading');
+  const badge   = document.getElementById('fireBadge');
+  const srcLbl  = document.getElementById('fireSourceLabel');
+
+  if (loading) loading.style.display = 'flex';
+  if (badge)   badge.style.display = 'none';
+
+  ensureFireLeaflet(() => {
+    setTimeout(() => {
+      initFireMap();
+      fetch('/api/bodrum/fire')
+        .then(r => r.json())
+        .then(data => {
+          ts.textContent = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+          if (loading) loading.style.display = 'none';
+          // Kaynak etiketi
+          if (srcLbl) srcLbl.textContent = (data.source || 'EFFIS/Copernicus') + ' · Bodrum 100km · VIIRS';
+          // Eski marker'ları temizle
+          fireMarkers.forEach(m => m.remove());
+          fireMarkers = [];
+
+          if (!data.success || !data.fires || !data.fires.length) {
+            if (badge) badge.style.display = 'none';
+            // Yangın yok — haritanın altına bilgi yaz
+            let noFireEl = document.getElementById('fireNoFireInfo');
+            if (!noFireEl) {
+              noFireEl = document.createElement('div');
+              noFireEl.id = 'fireNoFireInfo';
+              noFireEl.style.cssText = 'padding:10px 14px;font-size:12px;color:var(--muted);' +
+                'border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;' +
+                'background:var(--surface2);border-radius:0 0 10px 10px;flex-shrink:0';
+              document.getElementById('fireMapWrap').after(noFireEl);
+            }
+            const src = data.source || 'EFFIS/Copernicus';
+            const ts2 = new Date().toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+            noFireEl.innerHTML = '✅ <span><b>Aktif yangın tespit edilmedi</b> · Bodrum yarımadası 100km · son 24 saat · ' +
+              'kaynak: ' + src + ' · ' + ts2 + '</span>';
+            return;
+          }
+          // Yangın bulunduysa eski "no fire" bilgisini kaldır
+          const noFireEl = document.getElementById('fireNoFireInfo');
+          if (noFireEl) noFireEl.remove();
+
+          // Yangın sayısı badge
+          if (badge) {
+            badge.textContent = '🔥 ' + data.fires.length + ' nokta';
+            badge.style.display = 'block';
+          }
+
+          // Her yangın noktası için marker
+          data.fires.forEach(f => {
+            const conf = f.confidence === 'h' ? 'Yüksek' : f.confidence === 'n' ? 'Normal' : 'Düşük';
+            const frpVal = parseFloat(f.frp) || 0;
+            // FRP değerine göre marker boyutu
+            const size = Math.min(Math.max(frpVal / 5, 10), 30);
+            const fireIcon = L.divIcon({
+              html: `<div style="width:${size}px;height:${size}px;background:rgba(239,68,68,0.85);
+                          border:2px solid #ff4444;border-radius:50%;
+                          box-shadow:0 0 ${size}px rgba(239,68,68,0.6);
+                          cursor:pointer" title="🔥 Yangın noktası"></div>`,
+              className: '', iconAnchor: [size/2, size/2]
+            });
+            const marker = L.marker([f.lat, f.lon], { icon: fireIcon })
+              .addTo(fireMap)
+              .bindPopup(
+                `<b style="color:#ef4444">🔥 Aktif Yangın</b><br>` +
+                `<b>${f.acq_date}</b> ${String(f.acq_time||'').padStart(4,'0').replace(/(\d{2})(\d{2})/,'$1:$2')} UTC<br>` +
+                `${f.lat}°N, ${f.lon}°E<br>` +
+                `FRP: <b>${f.frp || '?'} MW</b> · Güven: ${conf}`,
+                { maxWidth: 260 }
+              );
+            fireMarkers.push(marker);
+          });
+
+          // Tüm yangın noktalarını gösterecek şekilde zoom ayarla
+          if (fireMarkers.length > 0) {
+            const group = L.featureGroup(fireMarkers);
+            fireMap.fitBounds(group.getBounds().pad(0.3));
+          }
+        })
+        .catch(e => {
+          if (loading) loading.style.display = 'none';
+          console.error('Fire load error:', e);
+        });
+    }, 150);
+  });
+}
+
+/* ── Yerel Haberler ────────────────────────────────────────────────────── */
+async function loadNews() {
+  const body = document.getElementById('newsBody');
+  const ts   = document.getElementById('newsTimestamp');
+  body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">RSS sorgulanıyor…</div>';
+  try {
+    const res  = await fetch('/api/bodrum/news');
+    const data = await res.json();
+    ts.textContent = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+    if (!data.success || !data.items.length) {
+      body.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center">Haber alınamadı</div>';
+      return;
+    }
+    body.innerHTML = data.items.map(item => `
+      <a href="${item.link}" target="_blank" rel="noopener"
+         style="display:block;padding:11px 14px;border-bottom:1px solid var(--border);
+                text-decoration:none;transition:background .12s;"
+         onmouseover="this.style.background='var(--surface2)'"
+         onmouseout="this.style.background='transparent'">
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          ${item.is_fire ? '<span style="flex-shrink:0;font-size:14px">🔥</span>' : '<span style="flex-shrink:0;font-size:14px;opacity:.4">📰</span>'}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:${item.is_fire?'700':'500'};color:${item.is_fire?'#ef4444':'var(--text)'};
+                        line-height:1.4;margin-bottom:3px">${item.title}</div>
+            <div style="font-size:11px;color:var(--muted)">${item.source} · ${item.date ? item.date.slice(0,22) : ''}</div>
+          </div>
+        </div>
+      </a>`).join('');
+  } catch(e) {
+    body.innerHTML = `<div style="color:#ef4444;padding:16px">Bağlantı hatası: ${e.message}</div>`;
+  }
+}
+
+/* Otomatik yenileme — 10dk yangın, 60dk haberler */
+setInterval(() => { if (bodrumLoaded) loadFire(); }, 10 * 60 * 1000);
+setInterval(() => { if (bodrumLoaded) loadNews(); }, 60 * 60 * 1000);
+</script>
+
 </body>
 </html>
