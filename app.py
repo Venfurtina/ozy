@@ -96,6 +96,24 @@ def ensure_learn_schema(db: sqlite3.Connection) -> None:
         """)
     except Exception:
         pass
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS flight_log (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            log_date     TEXT    NOT NULL,
+            aircraft_type TEXT   NOT NULL DEFAULT '',
+            registration TEXT    NOT NULL DEFAULT '',
+            departure    TEXT    NOT NULL DEFAULT '',
+            destination  TEXT    NOT NULL DEFAULT '',
+            block_off    TEXT    NOT NULL DEFAULT '',
+            block_on     TEXT    NOT NULL DEFAULT '',
+            flight_time  TEXT    NOT NULL DEFAULT '',
+            landings     INTEGER NOT NULL DEFAULT 1,
+            pic_name     TEXT    NOT NULL DEFAULT '',
+            remarks      TEXT    NOT NULL DEFAULT '',
+            created_at   TEXT    DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     db.commit()
 
 
@@ -2477,6 +2495,109 @@ def rent_notifications():
         ORDER BY rpa.due_date
     """, (user_id, today, soon)).fetchall()
     return jsonify({"success": True, "items": [dict(r) for r in rows]})
+
+
+# ══ METAR Proxy ══════════════════════════════════════════════════════════════
+
+@app.route("/api/metar")
+def metar_proxy():
+    """Proxy for aviationweather.gov — avoids browser CORS issues."""
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    import urllib.request
+    ids     = request.args.get("ids", "EDDV,EDVK")
+    dtype   = request.args.get("type", "metar")   # metar | taf
+    bbox    = request.args.get("bbox", "")
+    fmt     = "raw"
+    if bbox:
+        url = f"https://aviationweather.gov/api/data/metar?bbox={bbox}&format={fmt}"
+    else:
+        endpoint = "taf" if dtype == "taf" else "metar"
+        url = f"https://aviationweather.gov/api/data/{endpoint}?ids={ids}&format={fmt}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "EskicesmeApp/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            text = r.read().decode("utf-8")
+        return text, 200, {"Content-Type": "text/plain; charset=utf-8"}
+    except Exception as e:
+        return str(e), 502
+
+
+# ══ Flight Logbook API ═══════════════════════════════════════════════════════
+
+@app.route("/api/logbook", methods=["GET"])
+def logbook_list():
+    if "user_id" not in session:
+        return jsonify({"success": False}), 401
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM flight_log WHERE user_id=? ORDER BY log_date DESC, id DESC",
+        (int(session["user_id"]),)
+    ).fetchall()
+    return jsonify({"success": True, "entries": [dict(r) for r in rows]})
+
+
+@app.route("/api/logbook", methods=["POST"])
+def logbook_add():
+    if "user_id" not in session:
+        return jsonify({"success": False}), 401
+    d = request.get_json(silent=True) or {}
+    db = get_db()
+    cur = db.execute("""
+        INSERT INTO flight_log
+          (user_id, log_date, aircraft_type, registration, departure, destination,
+           block_off, block_on, flight_time, landings, pic_name, remarks)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        int(session["user_id"]),
+        d.get("log_date", ""),
+        d.get("aircraft_type", ""),
+        d.get("registration", ""),
+        d.get("departure", ""),
+        d.get("destination", ""),
+        d.get("block_off", ""),
+        d.get("block_on", ""),
+        d.get("flight_time", ""),
+        int(d.get("landings", 1)),
+        d.get("pic_name", ""),
+        d.get("remarks", ""),
+    ))
+    db.commit()
+    row = db.execute("SELECT * FROM flight_log WHERE id=?", (cur.lastrowid,)).fetchone()
+    return jsonify({"success": True, "entry": dict(row)})
+
+
+@app.route("/api/logbook/<int:eid>", methods=["DELETE"])
+def logbook_delete(eid):
+    if "user_id" not in session:
+        return jsonify({"success": False}), 401
+    db = get_db()
+    db.execute("DELETE FROM flight_log WHERE id=? AND user_id=?",
+               (eid, int(session["user_id"])))
+    db.commit()
+    return jsonify({"success": True})
+
+
+@app.route("/api/logbook/<int:eid>", methods=["PUT"])
+def logbook_update(eid):
+    if "user_id" not in session:
+        return jsonify({"success": False}), 401
+    d = request.get_json(silent=True) or {}
+    db = get_db()
+    db.execute("""
+        UPDATE flight_log SET
+          log_date=?, aircraft_type=?, registration=?, departure=?, destination=?,
+          block_off=?, block_on=?, flight_time=?, landings=?, pic_name=?, remarks=?
+        WHERE id=? AND user_id=?
+    """, (
+        d.get("log_date",""), d.get("aircraft_type",""), d.get("registration",""),
+        d.get("departure",""), d.get("destination",""), d.get("block_off",""),
+        d.get("block_on",""), d.get("flight_time",""), int(d.get("landings",1)),
+        d.get("pic_name",""), d.get("remarks",""), eid, int(session["user_id"])
+    ))
+    db.commit()
+    row = db.execute("SELECT * FROM flight_log WHERE id=?", (eid,)).fetchone()
+    return jsonify({"success": True, "entry": dict(row)})
 
 
 @app.route("/sw.js")
